@@ -2,58 +2,53 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <title>Training: De Jargon-Detective</title>
+    <title>Training: De Taal-Wissel</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
-        :root { --pol: #1d4e89; --bg: #0f172a; --card: #1e293b; --gold: #ffd700; --white: #f1f5f9; --danger: #ef4444; }
+        :root { --pol: #1d4e89; --bg: #0f172a; --card: #1e293b; --gold: #ffd700; --white: #f1f5f9; --vanger: #10b981; --zender: #f59e0b; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--white); margin: 0; padding: 20px; }
-        .container { max-width: 900px; margin: auto; background: var(--card); padding: 30px; border-radius: 12px; border-top: 6px solid var(--pol); text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .container { max-width: 800px; margin: auto; background: var(--card); padding: 30px; border-radius: 12px; border-top: 6px solid var(--pol); text-align: center; }
         
-        .zin-box { background: rgba(0,0,0,0.3); border: 2px solid var(--pol); padding: 20px; margin: 20px 0; font-size: 1.3em; line-height: 1.6; font-style: italic; border-radius: 8px; }
-        .woord-highlight { color: var(--gold); font-weight: bold; text-decoration: underline; }
+        .role-indicator { padding: 10px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+        .is-zender { background: var(--zender); color: black; }
+        .is-vanger { background: var(--vanger); color: white; }
+
+        .zin-box { background: rgba(0,0,0,0.3); border: 2px solid var(--pol); padding: 25px; margin: 20px 0; font-size: 1.4em; border-radius: 8px; min-height: 80px; display: flex; align-items: center; justify-content: center; }
+        .highlight { color: var(--gold); font-weight: bold; text-decoration: underline; }
         
-        .input-field { width: 100%; padding: 15px; font-size: 1.1em; border-radius: 8px; border: 2px solid #334155; background: #0f172a; color: white; margin-bottom: 15px; box-sizing: border-box; }
-        .input-field:focus { border-color: var(--pol); outline: none; }
+        .input-field { width: 100%; padding: 15px; font-size: 1.2em; border-radius: 8px; border: none; margin-bottom: 10px; box-sizing: border-box; background: #0f172a; color: white; border: 2px solid #334155; }
+        .btn { background: var(--pol); color: white; padding: 15px 30px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; text-transform: uppercase; }
+        .status { font-size: 0.8em; color: #94a3b8; margin-top: 10px; }
         
-        .btn { background: var(--pol); color: white; padding: 15px 30px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; text-transform: uppercase; width: 100%; transition: 0.2s; }
-        .btn:hover { opacity: 0.9; }
-        .btn-reset { background: var(--danger); margin-top: 40px; font-size: 0.7em; width: auto; padding: 8px 15px; }
-        
-        .status-bar { background: rgba(255,255,255,0.05); padding: 10px; border-radius: 4px; margin-bottom: 20px; font-size: 0.9em; border: 1px solid #334155; }
-        .role-tag { background: var(--gold); color: black; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em; margin-bottom: 10px; display: inline-block; }
+        .btn-reset { background: #ef4444; margin-top: 40px; width: auto; font-size: 0.7em; padding: 8px 12px; opacity: 0.5; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>🕵️ De Jargon-Detective</h2>
+    <h2>🔄 De Taal-Wissel</h2>
     
     <div id="login-view">
-        <p>Voer je naam in om gekoppeld te worden aan een taal-buddy.</p>
         <input type="text" id="naam" class="input-field" placeholder="Je achternaam...">
-        <button onclick="startTraining()" class="btn">Start Verbinding</button>
+        <button onclick="startTraining()" class="btn">Start Training</button>
     </div>
 
     <div id="game-view" style="display:none;">
-        <div class="status-bar" id="buddy-status">Verbinding zoeken...</div>
+        <div id="role-box" class="role-indicator">Wachten op buddy...</div>
         
-        <div id="role-zender" style="display:none;">
-            <div class="role-tag">ZENDER (Oubollig)</div>
-            <p>Stuur de onderstaande zin door naar je buddy. Het <u>onderstreepte</u> woord is het probleem.</p>
-            <div class="zin-box" id="zin-display">...</div>
-            <p style="color: #94a3b8;">Wacht tot je buddy de moderne vertaling heeft gevonden.</p>
+        <div id="display-area">
+            <div id="instruction"></div>
+            <div id="content-box" class="zin-box">---</div>
+            
+            <div id="input-area" style="display:none;">
+                <input type="text" id="answer-input" class="input-field" placeholder="Moderne vertaling...">
+                <button onclick="verifieer()" class="btn">Controleer Vertaling</button>
+            </div>
         </div>
 
-        <div id="role-vanger" style="display:none;">
-            <div class="role-tag">VANGER (Modern)</div>
-            <p>Luister naar de zin van je buddy. Welk woord is oubollig en wat is het normale alternatief?</p>
-            <div class="zin-box" style="border-style: dashed; color: #94a3b8;">Wacht op de zin van je buddy...</div>
-            <input type="text" id="answer-input" class="input-field" placeholder="Wat is de moderne vertaling?">
-            <button onclick="verifieer()" class="btn">Vertaling Controleren</button>
-        </div>
-
-        <button onclick="resetSysteem()" class="btn btn-reset">⚠️ RESET SYSTEEM (DOCENT)</button>
+        <div class="status" id="buddy-info"></div>
+        <button onclick="resetSysteem()" class="btn btn-reset">Systeem Reset</button>
     </div>
 </div>
 
@@ -68,98 +63,113 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // Dataset met contextuele zinnen
     const oefeningen = [
-        {zin: "Ik was <span class='woord-highlight'>alvorens</span> het incident niet aanwezig op de locatie.", oud: "alvorens", nieuw: "vóór"},
-        {zin: "De verdachte weigerde de boete te <span class='woord-highlight'>voldoen</span>.", oud: "voldoen", nieuw: "betalen"},
-        {zin: "Er is een <span class='woord-highlight'>mutatie</span> doorgevoerd in het politiesysteem.", oud: "mutatie", nieuw: "wijziging"},
-        {zin: "Wij <span class='woord-highlight'>trachten</span> de getuige zo snel mogelijk te horen.", oud: "trachten", nieuw: "proberen"},
-        {zin: "U dient dit formulier aan de balie te <span class='woord-highlight'>retourneren</span>.", oud: "retourneren", nieuw: "terugsturen"},
-        {zin: "Het onderzoek wordt <span class='woord-highlight'>separaat</span> van de hoofdzaak gevoerd.", oud: "separaat", nieuw: "apart"},
-        {zin: "De verbalisant is <span class='woord-highlight'>voornemens</span> proces-verbaal op te maken.", oud: "voornemens", nieuw: "van plan"},
-        {zin: "Ik zal u hierover <span class='woord-highlight'>heden</span> middag berichten.", oud: "heden", nieuw: "vandaag"}
+        {zin: "Ik was <span class='highlight'>alvorens</span> het incident elders.", oud: "alvorens", nieuw: "voordat"},
+        {zin: "De getuige wenst niet te <span class='highlight'>voldoen</span>.", oud: "voldoen", nieuw: "betalen"},
+        {zin: "Wij <span class='highlight'>trachten</span> de verdachte aan te houden.", oud: "trachten", nieuw: "proberen"},
+        {zin: "De <span class='highlight'>mutatie</span> is verwerkt in het dossier.", oud: "mutatie", nieuw: "wijziging"},
+        {zin: "Ik heb dit <span class='highlight'>heden</span> waargenomen.", oud: "heden", nieuw: "vandaag"},
+        {zin: "De brief is <span class='highlight'>separaat</span> verzonden.", oud: "separaat", nieuw: "apart"},
+        {zin: "Wilt u dit <span class='highlight'>retourneren</span>?", oud: "retourneren", nieuw: "terugsturen"},
+        {zin: "De agent is <span class='highlight'>voornemens</span> te schrijven.", oud: "voornemens", nieuw: "van plan"}
     ];
 
-    let mijnNaam = "", mijnBuddy = "", rol = "";
+    let mijnNaam = "", mijnBuddy = "", sessiePad = "", ikBegonAls = "";
 
     function startTraining() {
         mijnNaam = document.getElementById('naam').value.trim();
         if(!mijnNaam) return;
-
         document.getElementById('login-view').style.display = "none";
         document.getElementById('game-view').style.display = "block";
 
-        const lobbyRef = db.ref('taallobby');
+        const lobbyRef = db.ref('taalwissel/lobby');
         lobbyRef.once('value', snap => {
             let data = snap.val();
             let gevonden = false;
-
-            if(data) {
-                for(let key in data) {
-                    if(data[key].status === "wachtend") {
-                        mijnBuddy = data[key].naam;
-                        rol = "VANGER";
-                        lobbyRef.child(key).update({ status: "matched", buddy: mijnNaam });
-                        startSessie(mijnBuddy, "VANGER");
-                        gevonden = true;
-                        break;
-                    }
+            for(let key in data) {
+                if(data[key].status === "wachtend") {
+                    mijnBuddy = data[key].naam;
+                    ikBegonAls = "VANGER";
+                    sessiePad = `${mijnBuddy}_${mijnNaam}`;
+                    lobbyRef.child(key).update({ status: "matched", buddy: mijnNaam });
+                    initSessie();
+                    gevonden = true; break;
                 }
             }
-
             if(!gevonden) {
-                rol = "ZENDER";
-                const mijnEntry = lobbyRef.push({ naam: mijnNaam, status: "wachtend" });
-                mijnEntry.onDisconnect().remove();
-                mijnEntry.on('value', s => {
+                ikBegonAls = "ZENDER";
+                const entry = lobbyRef.push({ naam: mijnNaam, status: "wachtend" });
+                entry.onDisconnect().remove();
+                entry.on('value', s => {
                     if(s.val() && s.val().status === "matched") {
                         mijnBuddy = s.val().buddy;
-                        startSessie(mijnBuddy, "ZENDER");
+                        sessiePad = `${mijnNaam}_${mijnBuddy}`;
+                        initSessie();
                     }
                 });
             }
         });
     }
 
-    function startSessie(buddy, mijnRol) {
-        document.getElementById('buddy-status').innerText = "Buddy: " + buddy;
-        document.getElementById(mijnRol === "ZENDER" ? 'role-zender' : 'role-vanger').style.display = "block";
-        
-        const sessiePad = mijnRol === "ZENDER" ? `${mijnNaam}_${buddy}` : `${buddy}_${mijnNaam}`;
-        
-        if(mijnRol === "ZENDER") nieuweOpgave(sessiePad);
-
+    function initSessie() {
+        document.getElementById('buddy-info').innerText = "Maatje: " + mijnBuddy;
+        // Luister naar de beurt-wissel in de database
         db.ref(`sessies/${sessiePad}`).on('value', snap => {
-            if(snap.val() && snap.val().status === "voltooid") {
-                alert("Goed gewerkt! Volgende zin...");
-                if(mijnRol === "ZENDER") nieuweOpgave(sessiePad);
-                else document.getElementById('answer-input').value = "";
-            }
+            const data = snap.val() || { beurt: "ZENDER_EERST", ronde: 0 };
+            updateInterface(data);
         });
     }
 
-    function nieuweOpgave(pad) {
-        const opgave = oefeningen[Math.floor(Math.random() * oefeningen.length)];
-        document.getElementById('zin-display').innerHTML = opgave.zin;
-        db.ref(`sessies/${pad}`).set({ antwoord: opgave.nieuw, status: "bezig" });
+    function updateInterface(data) {
+        const rb = document.getElementById('role-box');
+        const content = document.getElementById('content-box');
+        const inputArea = document.getElementById('input-area');
+        const instructie = document.getElementById('instruction');
+
+        // Bepaal wie er nu aan de beurt is op basis van de ronde (even/oneven)
+        const wieIsZender = (data.ronde % 2 === 0) ? "ZENDER_EERST" : "VANGER_EERST";
+        const mijnHuidigeRol = ( (wieIsZender === "ZENDER_EERST" && ikBegonAls === "ZENDER") || (wieIsZender === "VANGER_EERST" && ikBegonAls === "VANGER") ) ? "SPREKER" : "TOLK";
+
+        if(mijnHuidigeRol === "SPREKER") {
+            rb.innerText = "Jij bent nu de SPREKER";
+            rb.className = "role-indicator is-zender";
+            instructie.innerText = "Lees deze zin hardop voor aan je buddy:";
+            
+            // Haal de opgave op (gefixeerd per ronde)
+            const opgave = oefeningen[data.ronde % oefeningen.length];
+            content.innerHTML = opgave.zin;
+            inputArea.style.display = "none";
+            
+            // Sla het antwoord op zodat de vanger kan checken
+            db.ref(`sessies/${sessiePad}`).update({ correct_antwoord: opgave.nieuw });
+        } else {
+            rb.innerText = "Jij bent nu de TOLK";
+            rb.className = "role-indicator is-vanger";
+            instructie.innerText = "Luister naar je buddy en typ de moderne vertaling:";
+            content.innerHTML = "<span style='color:#94a3b8'>Luister naar de zin...</span>";
+            inputArea.style.display = "block";
+            document.getElementById('answer-input').focus();
+        }
     }
 
     function verifieer() {
         const gok = document.getElementById('answer-input').value.toLowerCase().trim();
-        const sessiePad = `${mijnBuddy}_${mijnNaam}`;
-        
         db.ref(`sessies/${sessiePad}`).once('value', snap => {
-            if(snap.val() && gok === snap.val().antwoord) {
-                db.ref(`sessies/${sessiePad}`).update({ status: "voltooid" });
+            if(snap.val() && gok === snap.val().correct_antwoord) {
+                alert("Correct! De rollen worden nu omgedraaid.");
+                document.getElementById('answer-input').value = "";
+                db.ref(`sessies/${sessiePad}`).update({ 
+                    ronde: snap.val().ronde + 1 
+                });
             } else {
-                alert("Foutief. Dat is nog steeds geen modern Nederlands!");
+                alert("Niet juist. Probeer het nog eens.");
             }
         });
     }
 
     function resetSysteem() {
-        if(confirm("Alle actieve sessies en de lobby wissen?")) {
-            db.ref('taallobby').remove();
+        if(confirm("Lobby en sessies legen?")) {
+            db.ref('taalwissel').remove();
             db.ref('sessies').remove();
             location.reload();
         }
