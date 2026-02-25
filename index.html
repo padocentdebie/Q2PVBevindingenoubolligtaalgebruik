@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>Training: De Politietolk</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        :root { --pol: #1d4e89; --bg: #0f172a; --card: #1e293b; --gold: #ffd700; --white: #f1f5f9; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--white); margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: var(--card); padding: 30px; border-radius: 12px; border-top: 6px solid var(--pol); text-align: center; }
+        
+        .woord-box { background: var(--bg); border: 2px dashed var(--gold); padding: 20px; margin: 20px 0; font-size: 1.8em; font-weight: bold; min-height: 50px; }
+        .input-field { width: 100%; padding: 15px; font-size: 1.2em; border-radius: 8px; border: none; margin-bottom: 10px; box-sizing: border-box; }
+        
+        .btn { background: var(--pol); color: white; padding: 15px 30px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; text-transform: uppercase; width: 100%; }
+        .status-bar { background: rgba(255,255,255,0.1); padding: 10px; border-radius: 4px; margin-bottom: 20px; font-size: 0.9em; }
+        
+        .chat-view { height: 150px; overflow-y: auto; background: #000; padding: 10px; border-radius: 4px; text-align: left; margin-bottom: 10px; font-family: monospace; }
+        .msg-oud { color: var(--gold); }
+        .msg-nieuw { color: #4ade80; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>📡 Operatie Helder Taalgebruik</h2>
+    
+    <div id="login-view">
+        <input type="text" id="naam" class="input-field" placeholder="Je achternaam...">
+        <button onclick="startTraining()" class="btn">Betreed de Lobby</button>
+    </div>
+
+    <div id="game-view" style="display:none;">
+        <div class="status-bar" id="buddy-status">Wachten op een buddy...</div>
+        
+        <div id="role-zender" style="display:none;">
+            <p>Jij bent de <strong>Ouderwetse Verbalisant</strong>.</p>
+            <p>Stuur dit woord door naar je maatje:</p>
+            <div class="woord-box" id="target-woord">---</div>
+            <p style="font-size: 0.8em; color: #94a3b8;">(Zeg het hardop of typ het in de chat)</p>
+        </div>
+
+        <div id="role-vanger" style="display:none;">
+            <p>Jij bent de <strong>Moderne Tolk</strong>.</p>
+            <p>Wacht op het oubollige woord van je maatje en typ hier de moderne versie:</p>
+            <input type="text" id="answer-input" class="input-field" placeholder="Vertaling...">
+            <button onclick="verifieer()" class="btn">Valideer Taalgebruik</button>
+        </div>
+
+        <div class="chat-view" id="chat"></div>
+    </div>
+</div>
+
+<script>
+    // Firebase Config (behouden uit vorige)
+    const firebaseConfig = {
+        apiKey: "AIzaSyBOo2LzR1IBnsiBR2SCwPJABtaRv0tpKQ4",
+        authDomain: "speeltuin-recherche.firebaseapp.com",
+        databaseURL: "https://speeltuin-recherche-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "speeltuin-recherche",
+        appId: "1:499912834123:web:3c84cbf4d5eb13131961ce"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const woordenLijst = [
+        {oud: "alvorens", nieuw: "voordat"},
+        {oud: "aangezien", nieuw: "omdat"},
+        {oud: "derhalve", nieuw: "daarom"},
+        {oud: "mutatie", nieuw: "wijziging"},
+        {oud: "separaat", nieuw: "apart"},
+        {oud: "trachten", nieuw: "proberen"},
+        {oud: "resideren", nieuw: "wonen"},
+        {oud: "verzoeken", nieuw: "vragen"}
+    ];
+
+    let mijnNaam = "";
+    let mijnBuddy = "";
+    let huidigeOpgave = null;
+    let rol = ""; // "ZENDER" of "VANGER"
+
+    function startTraining() {
+        mijnNaam = document.getElementById('naam').value.trim();
+        if(!mijnNaam) return;
+
+        document.getElementById('login-view').style.display = "none";
+        document.getElementById('game-view').style.display = "block";
+
+        // Lobby systeem: zoek een buddy
+        const lobbyRef = db.ref('taallobby');
+        lobbyRef.once('value', snap => {
+            const data = snap.val();
+            let gevonden = false;
+
+            if(data) {
+                for(let key in data) {
+                    if(data[key].status === "wachtend" && data[key].naam !== mijnNaam) {
+                        // Match gevonden!
+                        mijnBuddy = data[key].naam;
+                        rol = "VANGER";
+                        lobbyRef.child(key).update({ status: "matched", buddy: mijnNaam });
+                        startSessie(mijnBuddy, "VANGER");
+                        gevonden = true;
+                        break;
+                    }
+                }
+            }
+
+            if(!gevonden) {
+                rol = "ZENDER";
+                const mijnEntry = lobbyRef.push({ naam: mijnNaam, status: "wachtend" });
+                mijnEntry.onDisconnect().remove();
+                
+                // Luister of iemand mij matcht
+                mijnEntry.on('value', s => {
+                    if(s.val() && s.val().status === "matched") {
+                        mijnBuddy = s.val().buddy;
+                        startSessie(mijnBuddy, "ZENDER");
+                    }
+                });
+            }
+        });
+    }
+
+    function startSessie(buddyNaam, mijnRol) {
+        document.getElementById('buddy-status').innerText = "Gekoppeld aan: " + buddyNaam;
+        document.getElementById(mijnRol === "ZENDER" ? 'role-zender' : 'role-vanger').style.display = "block";
+        
+        if(mijnRol === "ZENDER") {
+            nieuweOpgave();
+        }
+
+        // Luister naar antwoorden van de vanger
+        db.ref(`sessies/${mijnNaam}_${buddyNaam}`).on('value', snap => {
+            if(snap.val() && snap.val().lastAction === "correct") {
+                if(mijnRol === "ZENDER") nieuweOpgave();
+                else document.getElementById('answer-input').value = "";
+            }
+        });
+    }
+
+    function nieuweOpgave() {
+        huidigeOpgave = woordenLijst[Math.floor(Math.random() * woordenLijst.length)];
+        document.getElementById('target-woord').innerText = huidigeOpgave.oud;
+        
+        // Update Firebase zodat de vanger weet welk woord gecheckt moet worden
+        db.ref(`sessies/${mijnNaam}_${mijnBuddy}`).update({
+            huidigNieuw: huidigeOpgave.nieuw,
+            lastAction: "nieuw_woord"
+        });
+    }
+
+    function verifieer() {
+        const gok = document.getElementById('answer-input').value.toLowerCase().trim();
+        db.ref(`sessies/${mijnBuddy}_${mijnNaam}`).once('value', snap => {
+            if(snap.val() && gok === snap.val().huidigNieuw) {
+                alert("Correct! Helder taalgebruik.");
+                db.ref(`sessies/${mijnBuddy}_${mijnNaam}`).update({ lastAction: "correct" });
+            } else {
+                alert("Dat is nog steeds te formeel of onjuist.");
+            }
+        });
+    }
+</script>
+</body>
+</html>
