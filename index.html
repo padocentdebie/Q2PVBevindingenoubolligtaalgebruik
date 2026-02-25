@@ -2,58 +2,62 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <title>Training: De Politietolk</title>
+    <title>Training: De Jargon-Detective</title>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <style>
-        :root { --pol: #1d4e89; --bg: #0f172a; --card: #1e293b; --gold: #ffd700; --white: #f1f5f9; }
+        :root { --pol: #1d4e89; --bg: #0f172a; --card: #1e293b; --gold: #ffd700; --white: #f1f5f9; --danger: #ef4444; }
         body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--white); margin: 0; padding: 20px; }
-        .container { max-width: 800px; margin: auto; background: var(--card); padding: 30px; border-radius: 12px; border-top: 6px solid var(--pol); text-align: center; }
+        .container { max-width: 900px; margin: auto; background: var(--card); padding: 30px; border-radius: 12px; border-top: 6px solid var(--pol); text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         
-        .woord-box { background: var(--bg); border: 2px dashed var(--gold); padding: 20px; margin: 20px 0; font-size: 1.8em; font-weight: bold; min-height: 50px; }
-        .input-field { width: 100%; padding: 15px; font-size: 1.2em; border-radius: 8px; border: none; margin-bottom: 10px; box-sizing: border-box; }
+        .zin-box { background: rgba(0,0,0,0.3); border: 2px solid var(--pol); padding: 20px; margin: 20px 0; font-size: 1.3em; line-height: 1.6; font-style: italic; border-radius: 8px; }
+        .woord-highlight { color: var(--gold); font-weight: bold; text-decoration: underline; }
         
-        .btn { background: var(--pol); color: white; padding: 15px 30px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; text-transform: uppercase; width: 100%; }
-        .status-bar { background: rgba(255,255,255,0.1); padding: 10px; border-radius: 4px; margin-bottom: 20px; font-size: 0.9em; }
+        .input-field { width: 100%; padding: 15px; font-size: 1.1em; border-radius: 8px; border: 2px solid #334155; background: #0f172a; color: white; margin-bottom: 15px; box-sizing: border-box; }
+        .input-field:focus { border-color: var(--pol); outline: none; }
         
-        .chat-view { height: 150px; overflow-y: auto; background: #000; padding: 10px; border-radius: 4px; text-align: left; margin-bottom: 10px; font-family: monospace; }
-        .msg-oud { color: var(--gold); }
-        .msg-nieuw { color: #4ade80; }
+        .btn { background: var(--pol); color: white; padding: 15px 30px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; text-transform: uppercase; width: 100%; transition: 0.2s; }
+        .btn:hover { opacity: 0.9; }
+        .btn-reset { background: var(--danger); margin-top: 40px; font-size: 0.7em; width: auto; padding: 8px 15px; }
+        
+        .status-bar { background: rgba(255,255,255,0.05); padding: 10px; border-radius: 4px; margin-bottom: 20px; font-size: 0.9em; border: 1px solid #334155; }
+        .role-tag { background: var(--gold); color: black; padding: 2px 8px; border-radius: 4px; font-weight: bold; font-size: 0.8em; margin-bottom: 10px; display: inline-block; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2>📡 Operatie Helder Taalgebruik</h2>
+    <h2>🕵️ De Jargon-Detective</h2>
     
     <div id="login-view">
+        <p>Voer je naam in om gekoppeld te worden aan een taal-buddy.</p>
         <input type="text" id="naam" class="input-field" placeholder="Je achternaam...">
-        <button onclick="startTraining()" class="btn">Betreed de Lobby</button>
+        <button onclick="startTraining()" class="btn">Start Verbinding</button>
     </div>
 
     <div id="game-view" style="display:none;">
-        <div class="status-bar" id="buddy-status">Wachten op een buddy...</div>
+        <div class="status-bar" id="buddy-status">Verbinding zoeken...</div>
         
         <div id="role-zender" style="display:none;">
-            <p>Jij bent de <strong>Ouderwetse Verbalisant</strong>.</p>
-            <p>Stuur dit woord door naar je maatje:</p>
-            <div class="woord-box" id="target-woord">---</div>
-            <p style="font-size: 0.8em; color: #94a3b8;">(Zeg het hardop of typ het in de chat)</p>
+            <div class="role-tag">ZENDER (Oubollig)</div>
+            <p>Stuur de onderstaande zin door naar je buddy. Het <u>onderstreepte</u> woord is het probleem.</p>
+            <div class="zin-box" id="zin-display">...</div>
+            <p style="color: #94a3b8;">Wacht tot je buddy de moderne vertaling heeft gevonden.</p>
         </div>
 
         <div id="role-vanger" style="display:none;">
-            <p>Jij bent de <strong>Moderne Tolk</strong>.</p>
-            <p>Wacht op het oubollige woord van je maatje en typ hier de moderne versie:</p>
-            <input type="text" id="answer-input" class="input-field" placeholder="Vertaling...">
-            <button onclick="verifieer()" class="btn">Valideer Taalgebruik</button>
+            <div class="role-tag">VANGER (Modern)</div>
+            <p>Luister naar de zin van je buddy. Welk woord is oubollig en wat is het normale alternatief?</p>
+            <div class="zin-box" style="border-style: dashed; color: #94a3b8;">Wacht op de zin van je buddy...</div>
+            <input type="text" id="answer-input" class="input-field" placeholder="Wat is de moderne vertaling?">
+            <button onclick="verifieer()" class="btn">Vertaling Controleren</button>
         </div>
 
-        <div class="chat-view" id="chat"></div>
+        <button onclick="resetSysteem()" class="btn btn-reset">⚠️ RESET SYSTEEM (DOCENT)</button>
     </div>
 </div>
 
 <script>
-    // Firebase Config (behouden uit vorige)
     const firebaseConfig = {
         apiKey: "AIzaSyBOo2LzR1IBnsiBR2SCwPJABtaRv0tpKQ4",
         authDomain: "speeltuin-recherche.firebaseapp.com",
@@ -64,21 +68,19 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    const woordenLijst = [
-        {oud: "alvorens", nieuw: "voordat"},
-        {oud: "aangezien", nieuw: "omdat"},
-        {oud: "derhalve", nieuw: "daarom"},
-        {oud: "mutatie", nieuw: "wijziging"},
-        {oud: "separaat", nieuw: "apart"},
-        {oud: "trachten", nieuw: "proberen"},
-        {oud: "resideren", nieuw: "wonen"},
-        {oud: "verzoeken", nieuw: "vragen"}
+    // Dataset met contextuele zinnen
+    const oefeningen = [
+        {zin: "Ik was <span class='woord-highlight'>alvorens</span> het incident niet aanwezig op de locatie.", oud: "alvorens", nieuw: "vóór"},
+        {zin: "De verdachte weigerde de boete te <span class='woord-highlight'>voldoen</span>.", oud: "voldoen", nieuw: "betalen"},
+        {zin: "Er is een <span class='woord-highlight'>mutatie</span> doorgevoerd in het politiesysteem.", oud: "mutatie", nieuw: "wijziging"},
+        {zin: "Wij <span class='woord-highlight'>trachten</span> de getuige zo snel mogelijk te horen.", oud: "trachten", nieuw: "proberen"},
+        {zin: "U dient dit formulier aan de balie te <span class='woord-highlight'>retourneren</span>.", oud: "retourneren", nieuw: "terugsturen"},
+        {zin: "Het onderzoek wordt <span class='woord-highlight'>separaat</span> van de hoofdzaak gevoerd.", oud: "separaat", nieuw: "apart"},
+        {zin: "De verbalisant is <span class='woord-highlight'>voornemens</span> proces-verbaal op te maken.", oud: "voornemens", nieuw: "van plan"},
+        {zin: "Ik zal u hierover <span class='woord-highlight'>heden</span> middag berichten.", oud: "heden", nieuw: "vandaag"}
     ];
 
-    let mijnNaam = "";
-    let mijnBuddy = "";
-    let huidigeOpgave = null;
-    let rol = ""; // "ZENDER" of "VANGER"
+    let mijnNaam = "", mijnBuddy = "", rol = "";
 
     function startTraining() {
         mijnNaam = document.getElementById('naam').value.trim();
@@ -87,16 +89,14 @@
         document.getElementById('login-view').style.display = "none";
         document.getElementById('game-view').style.display = "block";
 
-        // Lobby systeem: zoek een buddy
         const lobbyRef = db.ref('taallobby');
         lobbyRef.once('value', snap => {
-            const data = snap.val();
+            let data = snap.val();
             let gevonden = false;
 
             if(data) {
                 for(let key in data) {
-                    if(data[key].status === "wachtend" && data[key].naam !== mijnNaam) {
-                        // Match gevonden!
+                    if(data[key].status === "wachtend") {
                         mijnBuddy = data[key].naam;
                         rol = "VANGER";
                         lobbyRef.child(key).update({ status: "matched", buddy: mijnNaam });
@@ -111,8 +111,6 @@
                 rol = "ZENDER";
                 const mijnEntry = lobbyRef.push({ naam: mijnNaam, status: "wachtend" });
                 mijnEntry.onDisconnect().remove();
-                
-                // Luister of iemand mij matcht
                 mijnEntry.on('value', s => {
                     if(s.val() && s.val().status === "matched") {
                         mijnBuddy = s.val().buddy;
@@ -123,44 +121,48 @@
         });
     }
 
-    function startSessie(buddyNaam, mijnRol) {
-        document.getElementById('buddy-status').innerText = "Gekoppeld aan: " + buddyNaam;
+    function startSessie(buddy, mijnRol) {
+        document.getElementById('buddy-status').innerText = "Buddy: " + buddy;
         document.getElementById(mijnRol === "ZENDER" ? 'role-zender' : 'role-vanger').style.display = "block";
         
-        if(mijnRol === "ZENDER") {
-            nieuweOpgave();
-        }
+        const sessiePad = mijnRol === "ZENDER" ? `${mijnNaam}_${buddy}` : `${buddy}_${mijnNaam}`;
+        
+        if(mijnRol === "ZENDER") nieuweOpgave(sessiePad);
 
-        // Luister naar antwoorden van de vanger
-        db.ref(`sessies/${mijnNaam}_${buddyNaam}`).on('value', snap => {
-            if(snap.val() && snap.val().lastAction === "correct") {
-                if(mijnRol === "ZENDER") nieuweOpgave();
+        db.ref(`sessies/${sessiePad}`).on('value', snap => {
+            if(snap.val() && snap.val().status === "voltooid") {
+                alert("Goed gewerkt! Volgende zin...");
+                if(mijnRol === "ZENDER") nieuweOpgave(sessiePad);
                 else document.getElementById('answer-input').value = "";
             }
         });
     }
 
-    function nieuweOpgave() {
-        huidigeOpgave = woordenLijst[Math.floor(Math.random() * woordenLijst.length)];
-        document.getElementById('target-woord').innerText = huidigeOpgave.oud;
-        
-        // Update Firebase zodat de vanger weet welk woord gecheckt moet worden
-        db.ref(`sessies/${mijnNaam}_${mijnBuddy}`).update({
-            huidigNieuw: huidigeOpgave.nieuw,
-            lastAction: "nieuw_woord"
-        });
+    function nieuweOpgave(pad) {
+        const opgave = oefeningen[Math.floor(Math.random() * oefeningen.length)];
+        document.getElementById('zin-display').innerHTML = opgave.zin;
+        db.ref(`sessies/${pad}`).set({ antwoord: opgave.nieuw, status: "bezig" });
     }
 
     function verifieer() {
         const gok = document.getElementById('answer-input').value.toLowerCase().trim();
-        db.ref(`sessies/${mijnBuddy}_${mijnNaam}`).once('value', snap => {
-            if(snap.val() && gok === snap.val().huidigNieuw) {
-                alert("Correct! Helder taalgebruik.");
-                db.ref(`sessies/${mijnBuddy}_${mijnNaam}`).update({ lastAction: "correct" });
+        const sessiePad = `${mijnBuddy}_${mijnNaam}`;
+        
+        db.ref(`sessies/${sessiePad}`).once('value', snap => {
+            if(snap.val() && gok === snap.val().antwoord) {
+                db.ref(`sessies/${sessiePad}`).update({ status: "voltooid" });
             } else {
-                alert("Dat is nog steeds te formeel of onjuist.");
+                alert("Foutief. Dat is nog steeds geen modern Nederlands!");
             }
         });
+    }
+
+    function resetSysteem() {
+        if(confirm("Alle actieve sessies en de lobby wissen?")) {
+            db.ref('taallobby').remove();
+            db.ref('sessies').remove();
+            location.reload();
+        }
     }
 </script>
 </body>
