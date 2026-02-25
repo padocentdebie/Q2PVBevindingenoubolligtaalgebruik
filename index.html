@@ -1,42 +1,199 @@
-<style>
-    /* ... bestaande CSS ... */
-    #celebration-overlay {
-        display: none;
-        position: fixed;
-        top: 50%;
-        left: 50%;
-        transform: translate(-50%, -50%);
-        z-index: 100;
-        text-align: center;
-        background: rgba(15, 23, 42, 0.9);
-        padding: 20px;
-        border-radius: 20px;
-        border: 4px solid var(--gold);
-    }
-    .gif-img { width: 300px; border-radius: 10px; margin-bottom: 10px; }
-    .success-text { font-size: 1.5em; font-weight: bold; color: var(--gold); display: block; }
-</style>
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <title>Training: De Taal-Wissel</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <style>
+        :root { --pol: #1d4e89; --bg: #0f172a; --card: #1e293b; --gold: #ffd700; --white: #f1f5f9; --vanger: #10b981; --zender: #f59e0b; --danger: #ef4444; }
+        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--white); margin: 0; padding: 20px; }
+        .container { max-width: 800px; margin: auto; background: var(--card); padding: 30px; border-radius: 12px; border-top: 6px solid var(--pol); text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        
+        /* Rol-indicatoren */
+        .role-indicator { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; font-size: 1.2em; }
+        .is-zender { background: var(--zender); color: black; border: 3px solid #b45309; }
+        .is-vanger { background: var(--vanger); color: white; border: 3px solid #065f46; }
+
+        .zin-box { background: rgba(0,0,0,0.4); border: 2px solid var(--pol); padding: 30px; margin: 20px 0; font-size: 1.5em; border-radius: 10px; min-height: 100px; display: flex; align-items: center; justify-content: center; line-height: 1.5; box-shadow: inset 0 0 15px rgba(0,0,0,0.5); }
+        .highlight { color: var(--gold); font-weight: bold; text-decoration: underline; }
+        
+        .input-field { width: 100%; padding: 18px; font-size: 1.3em; border-radius: 8px; border: 2px solid #334155; background: #0f172a; color: white; margin-bottom: 15px; box-sizing: border-box; text-align: center; }
+        .btn { background: var(--pol); color: white; padding: 18px 30px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; text-transform: uppercase; font-size: 1.1em; transition: 0.2s; }
+        .btn:hover { background: #2563eb; transform: translateY(-2px); }
+
+        /* De GIF Overlay */
+        #celebration-overlay {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 1000;
+            text-align: center;
+            background: rgba(15, 23, 42, 0.98);
+            padding: 40px;
+            border-radius: 30px;
+            border: 5px solid var(--gold);
+            box-shadow: 0 0 100px rgba(0,0,0,1);
+        }
+        .gif-img { width: 400px; border-radius: 15px; box-shadow: 0 0 20px rgba(255,215,0,0.3); }
+        .success-text { font-size: 2.2em; font-weight: bold; color: var(--gold); display: block; margin-top: 20px; font-style: italic; }
+
+        .btn-reset { background: var(--danger); margin-top: 50px; width: auto; font-size: 0.8em; padding: 10px 20px; opacity: 0.5; }
+        .btn-reset:hover { opacity: 1; }
+    </style>
+</head>
+<body>
 
 <div id="celebration-overlay">
-    <img src="gun-drop.gif" class="gif-img" alt="Succes!">
-    <span class="success-text">BOOM! HELDER TAALGEBRUIK.</span>
+    <img src="gun-drop.gif" id="reward-gif" class="gif-img" alt="BOOM!">
+    <span class="success-text">MIC DROP! HELDERE TAAL.</span>
+</div>
+
+<div class="container">
+    <h2>🔄 De Taal-Wissel: Gun-Drop Editie</h2>
+    
+    <div id="login-view">
+        <p>Voer je achternaam in om te koppelen aan een collega.</p>
+        <input type="text" id="naam" class="input-field" placeholder="Achternaam...">
+        <button onclick="startTraining()" class="btn">Koppel aan Buddy</button>
+    </div>
+
+    <div id="game-view" style="display:none;">
+        <div id="role-box" class="role-indicator">Verbinden met database...</div>
+        
+        <div id="display-area">
+            <p id="instruction" style="font-weight: bold; color: #94a3b8; font-size: 1.1em;"></p>
+            <div id="content-box" class="zin-box">---</div>
+            
+            <div id="input-area" style="display:none;">
+                <input type="text" id="answer-input" class="input-field" placeholder="Typ de moderne versie..." autocomplete="off">
+                <button onclick="verifieer()" class="btn">Check Vertaling & Drop the mic</button>
+            </div>
+        </div>
+
+        <div id="buddy-info" style="margin-top:25px; font-size: 1em; color: var(--gold); font-weight: bold;"></div>
+        <button onclick="resetSysteem()" class="btn btn-reset">Systeem Reset (Docent)</button>
+    </div>
 </div>
 
 <script>
-    // Pas de 'verifieer' functie aan in je script:
+    const firebaseConfig = {
+        apiKey: "AIzaSyBOo2LzR1IBnsiBR2SCwPJABtaRv0tpKQ4",
+        authDomain: "speeltuin-recherche.firebaseapp.com",
+        databaseURL: "https://speeltuin-recherche-default-rtdb.europe-west1.firebasedatabase.app",
+        projectId: "speeltuin-recherche",
+        appId: "1:499912834123:web:3c84cbf4d5eb13131961ce"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+
+    const oefeningen = [
+        {zin: "Ik trachtte de verdachte middels een <span class='highlight'>fysieke interventie</span> te belemmeren.", oud: "fysieke interventie", nieuw: "tackle"},
+        {zin: "De verbalisant is <span class='highlight'>voornemens</span> proces-verbaal op te maken.", oud: "voornemens", nieuw: "van plan"},
+        {zin: "Kunt u de gemaakte kosten aan ons <span class='highlight'>voldoen</span>?", oud: "voldoen", nieuw: "betalen"},
+        {zin: "Wij verzoeken u het formulier te <span class='highlight'>retourneren</span>.", oud: "retourneren", nieuw: "terugsturen"},
+        {zin: "Er is een <span class='highlight'>mutatie</span> gedaan in de rapportage.", oud: "mutatie", nieuw: "wijziging"},
+        {zin: "Ik heb dit <span class='highlight'>heden</span> middag geconstateerd.", oud: "heden", nieuw: "vandaag"},
+        {zin: "De getuige is <span class='highlight'>separaat</span> van de verdachte gehoord.", oud: "separaat", nieuw: "apart"},
+        {zin: "U dient <span class='highlight'>alvorens</span> het verhoor uw rechten te kennen.", oud: "alvorens", nieuw: "voor"}
+    ];
+
+    let mijnNaam = "", mijnBuddy = "", sessiePad = "", ikBegonAls = "";
+
+    function startTraining() {
+        mijnNaam = document.getElementById('naam').value.trim();
+        if(!mijnNaam) return;
+        document.getElementById('login-view').style.display = "none";
+        document.getElementById('game-view').style.display = "block";
+
+        const lobbyRef = db.ref('taalwissel/lobby');
+        lobbyRef.once('value', snap => {
+            let data = snap.val();
+            let gevonden = false;
+            for(let key in data) {
+                if(data[key].status === "wachtend") {
+                    mijnBuddy = data[key].naam;
+                    ikBegonAls = "VANGER";
+                    sessiePad = `${mijnBuddy}_${mijnNaam}`;
+                    lobbyRef.child(key).update({ status: "matched", buddy: mijnNaam });
+                    initSessie();
+                    gevonden = true; break;
+                }
+            }
+            if(!gevonden) {
+                ikBegonAls = "ZENDER";
+                const entry = lobbyRef.push({ naam: mijnNaam, status: "wachtend" });
+                entry.onDisconnect().remove();
+                entry.on('value', s => {
+                    if(s.val() && s.val().status === "matched") {
+                        mijnBuddy = s.val().buddy;
+                        sessiePad = `${mijnNaam}_${mijnBuddy}`;
+                        initSessie();
+                    }
+                });
+            }
+        });
+    }
+
+    function initSessie() {
+        document.getElementById('buddy-info').innerText = "Maatje gevonden: " + mijnBuddy;
+        db.ref(`sessies/${sessiePad}`).on('value', snap => {
+            const data = snap.val() || { ronde: 0, status: "bezig" };
+            
+            // GIF TRIGGER: Als status 'gevierd' is, tonen we de GIF bij BEIDEN
+            if (data.status === "gevierd") {
+                toonCelebration();
+                setTimeout(() => {
+                    if (ikBegonAls === "ZENDER") {
+                        db.ref(`sessies/${sessiePad}`).update({ 
+                            ronde: data.ronde + 1,
+                            status: "bezig"
+                        });
+                    }
+                }, 3000); // 3 seconden vieren
+                return;
+            }
+            updateInterface(data);
+        });
+    }
+
+    function updateInterface(data) {
+        const rb = document.getElementById('role-box');
+        const content = document.getElementById('content-box');
+        const inputArea = document.getElementById('input-area');
+        const inst = document.getElementById('instruction');
+
+        const wieMagSpreken = (data.ronde % 2 === 0) ? "ZENDER" : "VANGER";
+        const ikBenSpreker = (ikBegonAls === wieMagSpreken);
+
+        if(ikBenSpreker) {
+            rb.innerText = "Jij bent de SPREKER 🗣️";
+            rb.className = "role-indicator is-zender";
+            inst.innerText = "Lees deze zin duidelijk voor aan je buddy:";
+            const opgave = oefeningen[data.ronde % oefeningen.length];
+            content.innerHTML = opgave.zin;
+            inputArea.style.display = "none";
+            db.ref(`sessies/${sessiePad}`).update({ correct_antwoord: opgave.nieuw });
+        } else {
+            rb.innerText = "Jij bent de TOLK ✍️";
+            rb.className = "role-indicator is-vanger";
+            inst.innerText = "Luister goed! Wat is de normale vertaling van de zin?";
+            content.innerHTML = "<span style='color:#94a3b8; font-style:italic;'>Wacht tot je buddy de zin voorleest...</span>";
+            inputArea.style.display = "block";
+        }
+    }
+
     function verifieer() {
         const gok = document.getElementById('answer-input').value.toLowerCase().trim();
         db.ref(`sessies/${sessiePad}`).once('value', snap => {
-            if(snap.val() && gok === snap.val().correct_antwoord) {
-                // Toon de GIF beloning
-                toonCelebration();
-                
+            // Checkt of het antwoord klopt (of 'tackle' voor de eerste zin)
+            if(snap.val() && (gok === snap.val().correct_antwoord || (snap.val().correct_antwoord === "tackle" && gok.includes("tackle")))) {
                 document.getElementById('answer-input').value = "";
-                db.ref(`sessies/${sessiePad}`).update({ 
-                    ronde: snap.val().ronde + 1 
-                });
+                db.ref(`sessies/${sessiePad}`).update({ status: "gevierd" });
             } else {
-                alert("Niet juist. Dat is nog steeds ambtelijk geneuzel!");
+                alert("Niet helder genoeg! Probeer het opnieuw.");
             }
         });
     }
@@ -44,10 +201,22 @@
     function toonCelebration() {
         const overlay = document.getElementById('celebration-overlay');
         overlay.style.display = "block";
+        // Reset de GIF (laat hem opnieuw afspelen)
+        const gif = document.getElementById('reward-gif');
+        gif.src = gif.src; 
         
-        // Verberg de GIF weer na 2.5 seconden
-        setTimeout(() => {
-            overlay.style.display = "none";
-        }, 2500);
+        setTimeout(() => { 
+            overlay.style.display = "none"; 
+        }, 2800);
+    }
+
+    function resetSysteem() {
+        if(confirm("Lobby en alle sessies resetten voor een nieuwe les?")) {
+            db.ref('taalwissel').remove();
+            db.ref('sessies').remove();
+            location.reload();
+        }
     }
 </script>
+</body>
+</html>
