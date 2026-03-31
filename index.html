@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, onValue, push, set, update, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, onValue, set, update, onDisconnect, off } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBRq1HFmhrpW_EMMZwpURrbTArz-L5iWT4",
@@ -18,7 +18,7 @@
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
 
-        let myId, myKlas, myRole, pairId;
+        let myId, myKlas, myRole, currentSessionId;
         const casusLijst = [
             { id: 1, titel: "Huiselijk Geweld", tekst: "Elif Terzi huilt onbeheerst en heeft een rode vlek op haar wang.", img: "verdriet.jpg" },
             { id: 2, titel: "Vermissing", tekst: "Peter van der Laan staat met zijn handen in het haar en roept paniekerig om Liam.", img: "paniek.jpg" },
@@ -34,7 +34,7 @@
             myId = naam + "_" + Math.floor(Math.random() * 1000);
             const userRef = ref(db, `btv_p2p/${myKlas}/users/${myId}`);
             
-            set(userRef, { naam: naam, status: 'searching', pair: null });
+            set(userRef, { naam: naam, status: 'searching', session: null });
             onDisconnect(userRef).remove();
 
             document.getElementById('auth-scherm').classList.add('hidden');
@@ -43,40 +43,46 @@
         };
 
         function findPartner() {
-            const klasRef = ref(db, `btv_p2p/${myKlas}/users`);
-            onValue(klasRef, (snapshot) => {
+            const usersRef = ref(db, `btv_p2p/${myKlas}/users`);
+            
+            // Listener 1: Zoek zelf naar een beschikbare partner
+            const searchListener = onValue(usersRef, (snapshot) => {
                 const users = snapshot.val();
-                if (pairId) return;
+                if (!users || currentSessionId) return;
 
                 for (let id in users) {
                     if (id !== myId && users[id].status === 'searching') {
-                        pairId = id;
-                        const sessionId = myId + "_" + pairId;
+                        // Wij hebben iemand gevonden! Wij worden de READER.
+                        off(usersRef); // Stop met zoeken naar anderen
+                        currentSessionId = myId + "_" + id;
                         
-                        // Setup sessie
-                        set(ref(db, `btv_p2p/${myKlas}/sessions/${sessionId}`), {
+                        const sessionData = {
                             reader: myId,
-                            typer: pairId,
+                            typer: id,
                             casusIdx: 0,
                             currentText: "",
                             approved: false,
                             points: 0
-                        });
+                        };
 
-                        // Update users
-                        update(ref(db, `btv_p2p/${myKlas}/users/${myId}`), { status: 'busy', pair: pairId, session: sessionId });
-                        update(ref(db, `btv_p2p/${myKlas}/users/${pairId}`), { status: 'busy', pair: myId, session: sessionId });
-                        
-                        startSession(sessionId, 'reader');
+                        set(ref(db, `btv_p2p/${myKlas}/sessions/${currentSessionId}`), sessionData).then(() => {
+                            update(ref(db, `btv_p2p/${myKlas}/users/${myId}`), { status: 'busy', session: currentSessionId });
+                            update(ref(db, `btv_p2p/${myKlas}/users/${id}`), { status: 'busy', session: currentSessionId });
+                            startSession(currentSessionId, 'reader');
+                        });
                         break;
                     }
                 }
             });
 
-            // Luister of iemand MIJ heeft gevonden
-            onValue(ref(db, `btv_p2p/${myKlas}/users/${myId}/session`), (snap) => {
-                if (snap.val() && !pairId) {
-                    const sid = snap.val();
+            // Listener 2: Wacht of een ander JOU vindt
+            const selfSessionRef = ref(db, `btv_p2p/${myKlas}/users/${myId}/session`);
+            onValue(selfSessionRef, (snap) => {
+                const sid = snap.val();
+                if (sid && !currentSessionId) {
+                    // Een ander heeft ons gevonden! Wij worden de TYPER.
+                    off(usersRef); 
+                    currentSessionId = sid;
                     startSession(sid, 'typer');
                 }
             });
@@ -100,32 +106,37 @@
                     document.getElementById('typer-view').classList.add('hidden');
                     document.getElementById('orig-tekst').innerText = casus.tekst;
                     document.getElementById('live-check').innerText = data.currentText || "...wachten op invoer...";
-                    document.getElementById('approve-btn').disabled = data.currentText.length < 5;
+                    document.getElementById('approve-btn').disabled = (data.currentText.length < 5 || data.approved);
                 } else {
                     document.getElementById('reader-view').classList.add('hidden');
                     document.getElementById('typer-view').classList.remove('hidden');
                     document.getElementById('casus-hint').innerText = "Luister naar je partner en typ de objectieve PV-versie.";
+                    // Als de reader heeft goedgekeurd, maken we het veld leeg voor de volgende
+                    if (data.approved === false && data.currentText === "") {
+                         document.getElementById('user-input').value = "";
+                    }
                 }
 
                 if (data.approved) {
-                    alert("Correct! Volgende casus.");
-                    nextCasus(sid, data.points, data.casusIdx);
+                    // Alleen de reader triggert de overgang na een korte pauze of klik
+                    // In dit geval doen we het automatisch voor de flow
+                    setTimeout(() => {
+                        if (myRole === 'reader') nextCasus(sid, data.points, data.casusIdx);
+                    }, 1500);
                 }
             });
         }
 
         window.updateTyping = (val) => {
-            const sid = myId.includes(pairId) ? pairId + "_" + myId : myId + "_" + pairId; // Simpele match check
-            // Omdat session ID bepalen lastig is zonder opslag, gebruiken we de sessie uit de user data
-            onValue(ref(db, `btv_p2p/${myKlas}/users/${myId}/session`), (snap) => {
-                update(ref(db, `btv_p2p/${myKlas}/sessions/${snap.val()}`), { currentText: val });
-            }, {onlyOnce: true});
+            if (currentSessionId && myRole === 'typer') {
+                update(ref(db, `btv_p2p/${myKlas}/sessions/${currentSessionId}`), { currentText: val });
+            }
         };
 
         window.approve = () => {
-            onValue(ref(db, `btv_p2p/${myKlas}/users/${myId}/session`), (snap) => {
-                update(ref(db, `btv_p2p/${myKlas}/sessions/${snap.val()}`), { approved: true });
-            }, {onlyOnce: true});
+            if (currentSessionId && myRole === 'reader') {
+                update(ref(db, `btv_p2p/${myKlas}/sessions/${currentSessionId}`), { approved: true });
+            }
         };
 
         function nextCasus(sid, points, idx) {
@@ -136,7 +147,6 @@
                 points: points + 1,
                 casusIdx: newIdx
             });
-            document.getElementById('user-input').value = "";
         }
     </script>
 </head>
@@ -178,8 +188,8 @@
             </div>
             <div class="bg-white border-2 border-slate-200 p-6">
                 <h3 class="text-[10px] uppercase mb-4 text-slate-400">Wat je partner typt:</h3>
-                <p id="live-check" class="font-mono text-sm min-h-[50px] text-slate-700"></p>
-                <button id="approve-btn" onclick="approve()" class="mt-6 w-full bg-emerald-600 text-white py-4 font-bold uppercase text-xs hover:bg-emerald-700 disabled:opacity-30">Correct (Duim omhoog)</button>
+                <p id="live-check" class="font-mono text-sm min-h-[50px] text-slate-700 whitespace-pre-wrap"></p>
+                <button id="approve-btn" onclick="approve()" class="mt-6 w-full bg-emerald-600 text-white py-4 font-bold uppercase text-xs hover:bg-emerald-700 disabled:opacity-30">Correct (Volgende)</button>
             </div>
         </div>
 
