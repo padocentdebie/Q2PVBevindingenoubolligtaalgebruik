@@ -2,187 +2,194 @@
 <html lang="nl">
 <head>
     <meta charset="UTF-8">
-    <title>Training: De Taal-Wissel (Klassikaal)</title>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-    <style>
-        :root { --pol: #1d4e89; --bg: #0f172a; --card: #1e293b; --gold: #ffd700; --white: #f1f5f9; --vanger: #10b981; --zender: #f59e0b; --danger: #ef4444; }
-        body { font-family: 'Segoe UI', sans-serif; background: var(--bg); color: var(--white); margin: 0; padding: 20px; }
-        .container { max-width: 800px; margin: auto; background: var(--card); padding: 30px; border-radius: 12px; border-top: 6px solid var(--pol); text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-        
-        .role-indicator { padding: 15px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; text-transform: uppercase; letter-spacing: 1px; font-size: 1.2em; }
-        .is-docent { background: var(--zender); color: black; border: 3px solid #b45309; }
-        .is-student { background: var(--vanger); color: white; border: 3px solid #065f46; }
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BTV - Duo Training Systeem</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, onValue, push, set, update, onDisconnect, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        .zin-box { background: rgba(0,0,0,0.4); border: 2px solid var(--pol); padding: 30px; margin: 20px 0; font-size: 1.5em; border-radius: 10px; min-height: 100px; display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.5; }
-        .highlight { color: var(--gold); font-weight: bold; text-decoration: underline; }
-        
-        .input-field { width: 100%; padding: 18px; font-size: 1.3em; border-radius: 8px; border: 2px solid #334155; background: #0f172a; color: white; margin-bottom: 15px; box-sizing: border-box; text-align: center; }
-        .btn { background: var(--pol); color: white; padding: 18px 30px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; text-transform: uppercase; font-size: 1.1em; transition: 0.2s; margin-top: 10px; }
-        .btn:hover { background: #2563eb; transform: translateY(-2px); }
+        const firebaseConfig = {
+            apiKey: "AIzaSyBRq1HFmhrpW_EMMZwpURrbTArz-L5iWT4",
+            databaseURL: "https://pvaangifteinleveren-77dbe-default-rtdb.europe-west1.firebasedatabase.app/",
+            projectId: "pvaangifteinleveren-77dbe"
+        };
 
-        #celebration-overlay {
-            display: none;
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 1000;
-            text-align: center;
-            background: rgba(15, 23, 42, 0.95);
-            padding: 40px;
-            border-radius: 30px;
-            border: 5px solid var(--gold);
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        let myId, myKlas, myRole, pairId;
+        const casusLijst = [
+            { id: 1, titel: "Huiselijk Geweld", tekst: "Elif Terzi huilt onbeheerst en heeft een rode vlek op haar wang.", img: "verdriet.jpg" },
+            { id: 2, titel: "Vermissing", tekst: "Peter van der Laan staat met zijn handen in het haar en roept paniekerig om Liam.", img: "paniek.jpg" },
+            { id: 3, titel: "XTC Overlast", tekst: "Kevin Schut heeft extreem grote pupillen en een strakke kaakklem.", img: "drugs.jpg" },
+            { id: 4, titel: "Alcohol", tekst: "Johannes Berends spreekt met dubbele tong en heeft bloeddoorlopen ogen.", img: "alcohol.jpg" }
+        ];
+
+        window.login = () => {
+            const naam = document.getElementById('naam').value.trim().toUpperCase();
+            myKlas = document.getElementById('klas-select').value;
+            if(!naam || !myKlas) return alert("Vul naam en klas in.");
+
+            myId = naam + "_" + Math.floor(Math.random() * 1000);
+            const userRef = ref(db, `btv_p2p/${myKlas}/users/${myId}`);
+            
+            set(userRef, { naam: naam, status: 'searching', pair: null });
+            onDisconnect(userRef).remove();
+
+            document.getElementById('auth-scherm').classList.add('hidden');
+            document.getElementById('lobby-scherm').classList.remove('hidden');
+            findPartner();
+        };
+
+        function findPartner() {
+            const klasRef = ref(db, `btv_p2p/${myKlas}/users`);
+            onValue(klasRef, (snapshot) => {
+                const users = snapshot.val();
+                if (pairId) return;
+
+                for (let id in users) {
+                    if (id !== myId && users[id].status === 'searching') {
+                        pairId = id;
+                        const sessionId = myId + "_" + pairId;
+                        
+                        // Setup sessie
+                        set(ref(db, `btv_p2p/${myKlas}/sessions/${sessionId}`), {
+                            reader: myId,
+                            typer: pairId,
+                            casusIdx: 0,
+                            currentText: "",
+                            approved: false,
+                            points: 0
+                        });
+
+                        // Update users
+                        update(ref(db, `btv_p2p/${myKlas}/users/${myId}`), { status: 'busy', pair: pairId, session: sessionId });
+                        update(ref(db, `btv_p2p/${myKlas}/users/${pairId}`), { status: 'busy', pair: myId, session: sessionId });
+                        
+                        startSession(sessionId, 'reader');
+                        break;
+                    }
+                }
+            });
+
+            // Luister of iemand MIJ heeft gevonden
+            onValue(ref(db, `btv_p2p/${myKlas}/users/${myId}/session`), (snap) => {
+                if (snap.val() && !pairId) {
+                    const sid = snap.val();
+                    startSession(sid, 'typer');
+                }
+            });
         }
-        .gif-img { width: 350px; border-radius: 15px; }
-        .success-text { font-size: 2em; font-weight: bold; color: var(--gold); display: block; margin-top: 20px; }
 
-        .btn-reset { background: var(--danger); margin-top: 50px; width: auto; font-size: 0.8em; padding: 10px 20px; opacity: 0.6; }
-    </style>
+        function startSession(sid, role) {
+            myRole = role;
+            document.getElementById('lobby-scherm').classList.add('hidden');
+            document.getElementById('game-scherm').classList.remove('hidden');
+            
+            onValue(ref(db, `btv_p2p/${myKlas}/sessions/${sid}`), (snap) => {
+                const data = snap.val();
+                if (!data) return;
+
+                const casus = casusLijst[data.casusIdx];
+                document.getElementById('casus-titel').innerText = casus.titel;
+                document.getElementById('score').innerText = `Punten: ${data.points}`;
+
+                if (myRole === 'reader') {
+                    document.getElementById('reader-view').classList.remove('hidden');
+                    document.getElementById('typer-view').classList.add('hidden');
+                    document.getElementById('orig-tekst').innerText = casus.tekst;
+                    document.getElementById('live-check').innerText = data.currentText || "...wachten op invoer...";
+                    document.getElementById('approve-btn').disabled = data.currentText.length < 5;
+                } else {
+                    document.getElementById('reader-view').classList.add('hidden');
+                    document.getElementById('typer-view').classList.remove('hidden');
+                    document.getElementById('casus-hint').innerText = "Luister naar je partner en typ de objectieve PV-versie.";
+                }
+
+                if (data.approved) {
+                    alert("Correct! Volgende casus.");
+                    nextCasus(sid, data.points, data.casusIdx);
+                }
+            });
+        }
+
+        window.updateTyping = (val) => {
+            const sid = myId.includes(pairId) ? pairId + "_" + myId : myId + "_" + pairId; // Simpele match check
+            // Omdat session ID bepalen lastig is zonder opslag, gebruiken we de sessie uit de user data
+            onValue(ref(db, `btv_p2p/${myKlas}/users/${myId}/session`), (snap) => {
+                update(ref(db, `btv_p2p/${myKlas}/sessions/${snap.val()}`), { currentText: val });
+            }, {onlyOnce: true});
+        };
+
+        window.approve = () => {
+            onValue(ref(db, `btv_p2p/${myKlas}/users/${myId}/session`), (snap) => {
+                update(ref(db, `btv_p2p/${myKlas}/sessions/${snap.val()}`), { approved: true });
+            }, {onlyOnce: true});
+        };
+
+        function nextCasus(sid, points, idx) {
+            const newIdx = (idx + 1) % casusLijst.length;
+            update(ref(db, `btv_p2p/${myKlas}/sessions/${sid}`), {
+                approved: false,
+                currentText: "",
+                points: points + 1,
+                casusIdx: newIdx
+            });
+            document.getElementById('user-input').value = "";
+        }
+    </script>
 </head>
-<body>
+<body class="bg-slate-100 text-slate-900 font-sans">
 
-<div id="celebration-overlay">
-    <img src="gun-drop.gif" id="reward-gif" class="gif-img" alt="BOOM!">
-    <span class="success-text">HELDERE TAAL!</span>
-</div>
-
-<div class="container">
-    <h2>🔄 De Taal-Wissel: Klassikaal</h2>
-    
-    <div id="login-view">
-        <p>Voer je naam in om deel te nemen.</p>
-        <input type="text" id="naam" class="input-field" placeholder="Je naam (of 'Docent')...">
-        <button onclick="startTraining()" class="btn">Start Sessie</button>
+    <div id="auth-scherm" class="fixed inset-0 bg-[#002d5e] z-50 flex items-center justify-center p-4">
+        <div class="bg-white p-8 w-full max-w-sm border-t-8 border-yellow-500 shadow-2xl">
+            <h1 class="font-black text-2xl text-blue-900 mb-6 uppercase">Duo Training Login</h1>
+            <input type="text" id="naam" placeholder="JOUW NAAM" class="w-full border p-4 mb-4 bg-slate-50 uppercase text-xs font-bold outline-none">
+            <select id="klas-select" class="w-full border p-4 mb-6 bg-slate-50 uppercase text-xs font-bold outline-none">
+                <option value="ALFA">ALFA</option><option value="BRAVO">BRAVO</option>
+                <option value="CHARLIE">CHARLIE</option><option value="DELTA">DELTA</option>
+                <option value="ECHO">ECHO</option><option value="FOXTROT">FOXTROT</option>
+                <option value="GOLF">GOLF</option><option value="HOTEL">HOTEL</option>
+                <option value="JULIETT">JULIETT</option><option value="KILO">KILO</option>
+                <option value="LIMA">LIMA</option><option value="MIKE">MIKE</option>
+            </select>
+            <button onclick="login()" class="w-full bg-[#002d5e] text-white p-4 font-bold uppercase text-xs tracking-widest">Zoek Partner</button>
+        </div>
     </div>
 
-    <div id="game-view" style="display:none;">
-        <div id="role-box" class="role-indicator">Inloggen...</div>
-        
-        <div id="display-area">
-            <p id="instruction" style="font-weight: bold; color: #94a3b8;"></p>
-            <div id="content-box" class="zin-box">Laden...</div>
-            
-            <div id="input-area">
-                </div>
+    <div id="lobby-scherm" class="hidden fixed inset-0 bg-slate-100 flex items-center justify-center">
+        <div class="text-center">
+            <div class="animate-spin h-10 w-10 border-4 border-blue-900 border-t-transparent rounded-full mx-auto mb-4"></div>
+            <p class="font-bold text-blue-900 uppercase tracking-widest text-xs">Wachten op partner in klas...</p>
+        </div>
+    </div>
+
+    <div id="game-scherm" class="hidden max-w-2xl mx-auto p-6">
+        <header class="flex justify-between border-b-2 border-blue-900 pb-2 mb-8">
+            <div id="score" class="font-black text-blue-900 text-xs">Punten: 0</div>
+            <div id="casus-titel" class="font-black text-slate-400 text-xs uppercase tracking-widest"></div>
+        </header>
+
+        <div id="reader-view" class="hidden space-y-6">
+            <div class="bg-blue-900 text-white p-6 rounded-lg shadow-lg">
+                <h3 class="text-[10px] uppercase mb-2 opacity-70">Lees deze zin voor aan je partner:</h3>
+                <p id="orig-tekst" class="text-xl font-serif italic"></p>
+            </div>
+            <div class="bg-white border-2 border-slate-200 p-6">
+                <h3 class="text-[10px] uppercase mb-4 text-slate-400">Wat je partner typt:</h3>
+                <p id="live-check" class="font-mono text-sm min-h-[50px] text-slate-700"></p>
+                <button id="approve-btn" onclick="approve()" class="mt-6 w-full bg-emerald-600 text-white py-4 font-bold uppercase text-xs hover:bg-emerald-700 disabled:opacity-30">Correct (Duim omhoog)</button>
+            </div>
         </div>
 
-        <button onclick="resetSysteem()" class="btn btn-reset">Systeem Reset (Docent)</button>
+        <div id="typer-view" class="hidden space-y-6">
+            <div class="bg-white border-2 border-blue-900 p-6 shadow-xl">
+                <p id="casus-hint" class="text-xs font-bold text-blue-900 mb-6 uppercase italic"></p>
+                <textarea id="user-input" oninput="updateTyping(this.value)" class="w-full h-40 p-4 font-mono text-sm bg-slate-50 border outline-none focus:border-blue-900" placeholder="Typ hier de moderne, objectieve versie..."></textarea>
+                <p class="mt-4 text-[9px] text-slate-400 uppercase">Wacht op goedkeuring van je partner na het typen.</p>
+            </div>
+        </div>
     </div>
-</div>
-
-<script>
-    // Firebase configuratie
-    const firebaseConfig = {
-        apiKey: "AIzaSyBOo2LzR1IBnsiBR2SCwPJABtaRv0tpKQ4",
-        authDomain: "speeltuin-recherche.firebaseapp.com",
-        databaseURL: "https://speeltuin-recherche-default-rtdb.europe-west1.firebasedatabase.app",
-        projectId: "speeltuin-recherche",
-        appId: "1:499912834123:web:3c84cbf4d5eb13131961ce"
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-
-    const oefeningen = [
-        {zin: "Ik trachtte de verdachte middels een <span class='highlight'>fysieke interventie</span> te belemmeren.", nieuw: "tackle"},
-        {zin: "De verbalisant is <span class='highlight'>voornemens</span> proces-verbaal op te maken.", nieuw: "van plan"},
-        {zin: "Kunt u de gemaakte kosten aan ons <span class='highlight'>voldoen</span>?", nieuw: "betalen"},
-        {zin: "Wij verzoeken u het formulier te <span class='highlight'>retourneren</span>.", nieuw: "terugsturen"},
-        {zin: "Er is een <span class='highlight'>mutatie</span> gedaan in de rapportage.", nieuw: "wijziging"},
-        {zin: "Ik heb dit <span class='highlight'>heden</span> middag geconstateerd.", nieuw: "vandaag"},
-        {zin: "De getuige is <span class='highlight'>separaat</span> van de verdachte gehoord.", nieuw: "apart"},
-        {zin: "U dient <span class='highlight'>alvorens</span> het verhoor uw rechten te kennen.", nieuw: "voor"}
-    ];
-
-    let mijnNaam = "";
-    let isDocent = false;
-
-    function startTraining() {
-        mijnNaam = document.getElementById('naam').value.trim();
-        if(!mijnNaam) return;
-
-        if(mijnNaam.toLowerCase() === "docent") {
-            isDocent = true;
-        }
-
-        document.getElementById('login-view').style.display = "none";
-        document.getElementById('game-view').style.display = "block";
-
-        // Luister naar de centrale ronde-status
-        db.ref('centrale_les').on('value', snap => {
-            const data = snap.val() || { ronde: 0 };
-            updateInterface(data);
-        });
-    }
-
-    function updateInterface(data) {
-        const rb = document.getElementById('role-box');
-        const content = document.getElementById('content-box');
-        const inputArea = document.getElementById('input-area');
-        const inst = document.getElementById('instruction');
-
-        const index = data.ronde % oefeningen.length;
-        const huidigeOefening = oefeningen[index];
-
-        if(isDocent) {
-            rb.innerText = "MODUS: DOCENT 🎓";
-            rb.className = "role-indicator is-docent";
-            inst.innerText = "Huidige opgave voor de klas:";
-            content.innerHTML = `
-                <div>${huidigeOefening.zin}</div>
-                <div style="margin-top:20px; color:var(--gold); font-size:0.8em;">Correct antwoord: ${huidigeOefening.nieuw}</div>
-            `;
-            inputArea.innerHTML = `<button onclick="volgendeZin()" class="btn">Volgende Zin voor Iedereen ➡️</button>`;
-        } else {
-            rb.innerText = "STUDENT: " + mijnNaam;
-            rb.className = "role-indicator is-student";
-            inst.innerText = "Vertaal de highlight naar normale taal:";
-            content.innerHTML = huidigeOefening.zin;
-            inputArea.innerHTML = `
-                <input type="text" id="answer-input" class="input-field" placeholder="Typ je vertaling..." autocomplete="off">
-                <button onclick="verifieer(${index})" class="btn">Check Vertaling</button>
-            `;
-            // Focus op input voor snelle verwerking
-            setTimeout(() => document.getElementById('answer-input').focus(), 100);
-        }
-    }
-
-    function verifieer(index) {
-        const input = document.getElementById('answer-input');
-        const gok = input.value.toLowerCase().trim();
-        const correct = oefeningen[index].nieuw;
-        
-        if(gok === correct || (gok.length > 2 && gok.includes(correct))) {
-            toonCelebration();
-            input.value = "";
-        } else {
-            alert("Nog niet helder genoeg! Probeer het opnieuw.");
-        }
-    }
-
-    function volgendeZin() {
-        db.ref('centrale_les').once('value', snap => {
-            const huidigeRonde = (snap.val() && snap.val().ronde) || 0;
-            db.ref('centrale_les').update({
-                ronde: huidigeRonde + 1
-            });
-        });
-    }
-
-    function toonCelebration() {
-        const overlay = document.getElementById('celebration-overlay');
-        overlay.style.display = "block";
-        const gif = document.getElementById('reward-gif');
-        gif.src = gif.src; 
-        setTimeout(() => { overlay.style.display = "none"; }, 2500);
-    }
-
-    function resetSysteem() {
-        if(confirm("Sessie terugzetten naar de eerste zin?")) {
-            db.ref('centrale_les').set({ ronde: 0 });
-            if(isDocent) location.reload();
-        }
-    }
-</script>
 </body>
 </html>
