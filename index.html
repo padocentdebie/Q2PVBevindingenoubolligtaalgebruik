@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, onValue, set, update, onDisconnect, off, push, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getDatabase, ref, onValue, set, update, onDisconnect, off, push, serverTimestamp, remove } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         const firebaseConfig = {
             apiKey: "AIzaSyBRq1HFmhrpW_EMMZwpURrbTArz-L5iWT4",
@@ -19,81 +19,90 @@
         const db = getDatabase(app);
 
         let myId, myKlas, myRole, currentSessionId = null;
+        let isDocent = false;
 
         const casusLijst = [
-    { id: 1, titel: "Aangezien", tekst: "Aangezien de verdachte vluchtgevaarlijk was, hield ik hem vast.", hint: "Vervang 'Aangezien'" },
-    { id: 2, titel: "Alsmede", tekst: "Ik nam de gestolen fiets alsmede de tas van de verdachte in beslag.", hint: "Vervang 'Alsmede'" },
-    { id: 3, titel: "Alvorens", tekst: "Alvorens ik de woning betrad, riep ik luidkeels: 'Politie!'.", hint: "Vervang 'Alvorens'" },
-    { id: 4, titel: "Behoudens", tekst: "Behoudens de bestuurder trof ik geen andere personen aan in het voertuig.", hint: "Vervang 'Behoudens'" },
-    { id: 5, titel: "Berichten", tekst: "Ik besloot de meldkamer direct over het incident te berichten.", hint: "Vervang 'Berichten'" },
-    { id: 6, titel: "Betreffende", tekst: "Ik stelde de getuige diverse vragen betreffende de mishandeling.", hint: "Vervang 'Betreffende'" },
-    { id: 7, titel: "Bewerkstelligen", tekst: "Ik moest een geforceerde toegang bewerkstelligen om binnen te komen.", hint: "Vervang 'Bewerkstelligen'" },
-    { id: 8, titel: "Bij dezen", tekst: "Bij dezen stuur ik u graag de camerabeelden van de diefstal op.", hint: "Vervang 'Bij dezen stuur ik u graag'" },
-    { id: 9, titel: "Conform", tekst: "De fouillering voerde ik uit conform de geldende instructies.", hint: "Vervang 'Conform'" },
-    { id: 10, titel: "Daar", tekst: "Ik hield de man aan, daar hij geen geldig identiteitsbewijs toonde.", hint: "Vervang 'Daar'" },
-    { id: 11, titel: "Derhalve", tekst: "De getuige was onder invloed en derhalve onbetrouwbaar.", hint: "Vervang 'Derhalve'" },
-    { id: 12, titel: "Dienaangaande", tekst: "Ik hoorde geen verdere verklaringen dienaangaande van de omstanders.", hint: "Vervang 'Dienaangaande'" },
-    { id: 13, titel: "Doch", tekst: "De verdachte trachtte te vluchten, doch ik kon hem snel inhalen.", hint: "Vervang 'Doch'" },
-    { id: 14, titel: "Doen toekomen", tekst: "Ik zal u het proces-verbaal voor het einde van de week doen toekomen.", hint: "Vervang 'Doen toekomen'" },
-    { id: 15, titel: "Door middel van", tekst: "Ik zag dat het raam door middel van een baksteen was ingegooid.", hint: "Vervang 'Door middel van'" },
-    { id: 16, titel: "Eveneens", tekst: "Ik stelde vast dat de bijrijder eveneens onder invloed was.", hint: "Vervang 'Eveneens'" },
-    { id: 17, titel: "Gaarne", tekst: "Ik ontvang gaarne een kopie van de bewuste factuur.", hint: "Vervang 'Gaarne'" },
-    { id: 18, titel: "Geschieden", tekst: "De overdracht van de verdachte liet enige tijd op zich geschieden.", hint: "Vervang 'Geschieden'" },
-    { id: 19, titel: "Heden", tekst: "Heden om 14:00 uur zag ik een verdacht voertuig op de A1 rijden.", hint: "Vervang 'Heden'" },
-    { id: 20, titel: "Hiernavolgende", tekst: "Ik noteerde de gegevens van de hiernavolgende getuigen.", hint: "Vervang 'Hiernavolgende'" },
-    { id: 21, titel: "In deze", tekst: "Ik heb in deze nog geen definitieve beslissing genomen.", hint: "Vervang 'In deze'" },
-    { id: 22, titel: "Indien", tekst: "Indien de verdachte niet meewerkte, zou ik geweld gebruiken.", hint: "Vervang 'Indien'" },
-    { id: 23, titel: "Ingeval", tekst: "Ingeval van verzet was ik genoodzaakt de pepperspray te gebruiken.", hint: "Vervang 'Ingeval'" },
-    { id: 24, titel: "Ingevolge", tekst: "Ingevolge de Opiumwet nam ik de aangetroffen middelen in beslag.", hint: "Vervang 'Ingevolge'" },
-    { id: 25, titel: "Inzake", tekst: "Ik hoorde de getuige inzake de diefstal op de Grote Markt.", hint: "Vervang 'Inzake'" },
-    { id: 26, titel: "Jegens", tekst: "Ik merkte dat de jongeren zich agressief gedroegen jegens de politie.", hint: "Vervang 'Jegens'" },
-    { id: 27, titel: "Krachtens", tekst: "Krachtens mijn bevoegdheid vorderde ik inzage in zijn ID-bewijs.", hint: "Vervang 'Krachtens'" },
-    { id: 28, titel: "Mededelen", tekst: "Ik moest de verdachte de gronden van zijn aanhouding mededelen.", hint: "Vervang 'Mededelen'" },
-    { id: 29, titel: "Medio oktober", tekst: "Het nieuwe camerasysteem wordt medio oktober geleverd.", hint: "Vervang 'Medio oktober'" },
-    { id: 30, titel: "Meerdere", tekst: "Ik hoorde meerdere knallen die klonken als schoten.", hint: "Vervang 'Meerdere'" },
-    { id: 31, titel: "Met betrekking tot", tekst: "Ik stelde vragen met betrekking tot de eigenaar van het pand.", hint: "Vervang 'Met betrekking tot'" },
-    { id: 32, titel: "Middels", tekst: "Ik bracht de verdachte middels een transportgreep naar de auto.", hint: "Vervang 'Middels'" },
-    { id: 33, titel: "Mutatie", tekst: "Ik maakte direct een mutatie van mijn bevindingen in de politiesystemen.", hint: "Vervang 'Mutatie'" },
-    { id: 34, tekst: "Ik zag dat de apparatuur niet naar behoren functioneerde.", hint: "Vervang 'Naar behoren'" },
-    { id: 35, titel: "Omtrent", tekst: "Er was nog veel onduidelijkheid omtrent de juiste toedracht.", hint: "Vervang 'Omtrent'" },
-    { id: 36, titel: "Ondergetekende", tekst: "Ondergetekende zag dat het voertuig met hoge snelheid wegreed.", hint: "Vervang 'Ondergetekende'" },
-    { id: 37, titel: "Op deze wijze", tekst: "Op deze wijze trachtte de verdachte de controle te omzeilen.", hint: "Vervang 'Op deze wijze'" },
-    { id: 38, titel: "Retourneren", tekst: "Ik verzocht de vinder om de portefeuille naar het bureau te retourneren.", hint: "Vervang 'Retourneren'" },
-    { id: 39, titel: "Separaat", tekst: "Ik hoorde de twee verdachten separaat van elkaar op het bureau.", hint: "Vervang 'Separaat'" },
-    { id: 40, titel: "Schrijven", tekst: "Ik voegde het schrijven van de officier toe aan het dossier.", hint: "Vervang 'Het schrijven'" },
-    { id: 41, titel: "Te allen tijde", tekst: "U dient zich te allen tijde te kunnen legitimeren tegenover een ambtenaar.", hint: "Vervang 'Te allen tijde'" },
-    { id: 42, titel: "Ten aanzien van", tekst: "Ik trof maatregelen ten aanzien van de veiligheid op het plein.", hint: "Vervang 'Ten aanzien van'" },
-    { id: 43, titel: "Ten behoeve van", tekst: "Ik verzamelde sporen ten behoeve van het sporenonderzoek.", hint: "Vervang 'Ten behoeve van'" },
-    { id: 44, titel: "Ten gevolge van", tekst: "De schade aan de pui ontstond ten gevolge van de aanrijding.", hint: "Vervang 'Ten gevolge van'" },
-    { id: 45, titel: "Teneinde", tekst: "Ik greep fysiek in teneinde verdere escalatie te voorkomen.", hint: "Vervang 'Teneinde'" },
-    { id: 46, titel: "Ter zake van", tekst: "De man werd gezocht ter zake van een openstaande boete.", hint: "Vervang 'Ter zake van'" },
-    { id: 47, titel: "Tevens", tekst: "De verdachte droeg tevens een verboden wapen bij zich.", hint: "Vervang 'Tevens'" },
-    { id: 48, titel: "Tezamen", tekst: "Ik zag dat de drie mannen tezamen het winkelpand verlieten.", hint: "Vervang 'Tezamen'" },
-    { id: 49, titel: "Thans", tekst: "De situatie op de Dam is thans weer volledig onder controle.", hint: "Vervang 'Thans'" },
-    { id: 50, titel: "Trachten", tekst: "De verdachte trachtte de achtervolging te voet voort te zetten.", hint: "Vervang 'Trachten'" },
-    { id: 51, titel: "Vernemen", tekst: "Ik wilde van de getuige vernemen wat hij precies had gezien.", hint: "Vervang 'Vernemen'" },
-    { id: 52, titel: "Verzoeken", tekst: "Wij verzoeken u het terrein onmiddellijk te verlaten.", hint: "Vervang 'Verzoeken'" },
-    { id: 53, titel: "Voldoen", tekst: "U moet de opgelegde boete binnen veertien dagen voldoen.", hint: "Vervang 'Voldoen'" },
-    { id: 54, titel: "Vooralsnog", tekst: "Vooralsnog waren er geen aanwijzingen voor een misdrijf.", hint: "Vervang 'Vooralsnog'" },
-    { id: 55, titel: "Voorgaande", tekst: "Ik baseerde mijn vermoeden op de voorgaande feiten en omstandigheden.", hint: "Vervang 'Voorgaande'" },
-    { id: 56, titel: "Voornemens zijn", tekst: "Ik was voornemens de verdachte direct voor te geleiden.", hint: "Vervang 'Voornemens zijn'" },
-    { id: 57, titel: "Voorts", tekst: "Voorts trof ik een breekijzer aan in de kofferbak van de auto.", hint: "Vervang 'Voorts'" },
-    { id: 58, titel: "Welke", tekst: "De auto welke hier geparkeerd stond, bleek als gestolen gesignaleerd.", hint: "Vervang 'Welke'" },
-    { id: 59, titel: "Wijze", tekst: "Ik vroeg op welke wijze de inbrekers waren binnengekomen.", hint: "Vervang 'Wijze'" },
-    { id: 60, titel: "Zorgdragen", tekst: "Ik zou zorgdragen voor de beveiliging van de plaats delict.", hint: "Vervang 'Zorgdragen voor'" }
-];
+            { id: 1, titel: "Aangezien", tekst: "Aangezien de verdachte vluchtgevaarlijk was, hield ik hem vast.", hint: "Vervang 'Aangezien'" },
+            { id: 2, titel: "Alsmede", tekst: "Ik nam de gestolen fiets alsmede de tas van de verdachte in beslag.", hint: "Vervang 'Alsmede'" },
+            { id: 3, titel: "Alvorens", tekst: "Alvorens ik de woning betrad, riepen wij luidkeels: 'Politie!'.", hint: "Vervang 'Alvorens'" },
+            { id: 4, titel: "Behoudens", tekst: "Behoudens de bestuurder trof ik geen andere personen aan in het voertuig.", hint: "Vervang 'Behoudens'" },
+            { id: 5, titel: "Berichten", tekst: "Ik besloot de meldkamer direct over het incident te berichten.", hint: "Vervang 'Berichten'" },
+            { id: 6, titel: "Betreffende", tekst: "Ik stelde de getuige diverse vragen betreffende de mishandeling.", hint: "Vervang 'Betreffende'" },
+            { id: 7, titel: "Bewerkstelligen", tekst: "Ik moest een geforceerde toegang bewerkstelligen om binnen te komen.", hint: "Vervang 'Bewerkstelligen'" },
+            { id: 8, titel: "Bij dezen", tekst: "Bij dezen stuur ik u graag de camerabeelden van de diefstal op.", hint: "Vervang 'Bij dezen stuur ik u graag'" },
+            { id: 9, titel: "Conform", tekst: "De fouillering voerde ik uit conform de geldende instructies.", hint: "Vervang 'Conform'" },
+            { id: 10, titel: "Daar", tekst: "Ik hield de man aan, daar hij geen geldig identiteitsbewijs toonde.", hint: "Vervang 'Daar'" },
+            { id: 11, titel: "Derhalve", tekst: "De getuige was onder invloed en derhalve onbetrouwbaar.", hint: "Vervang 'Derhalve'" },
+            { id: 12, titel: "Dienaangaande", tekst: "Ik hoorde geen verdere verklaringen dienaangaande van de omstanders.", hint: "Vervang 'Dienaangaande'" },
+            { id: 13, titel: "Doch", tekst: "De verdachte trachtte te vluchten, doch ik kon hem snel inhalen.", hint: "Vervang 'Doch'" },
+            { id: 14, titel: "Doen toekomen", tekst: "Ik zal u het proces-verbaal voor het einde van de week doen toekomen.", hint: "Vervang 'Doen toekomen'" },
+            { id: 15, titel: "Door middel van", tekst: "Ik zag dat het raam door middel van een baksteen was ingegooid.", hint: "Vervang 'Door middel van'" },
+            { id: 16, titel: "Eveneens", tekst: "Ik stelde vast dat de bijrijder eveneens onder invloed was.", hint: "Vervang 'Eveneens'" },
+            { id: 17, titel: "Gaarne", tekst: "Ik ontvang gaarne een kopie van de bewuste factuur.", hint: "Vervang 'Gaarne'" },
+            { id: 18, titel: "Geschieden", tekst: "De overdracht van de verdachte liet enige tijd op zich geschieden.", hint: "Vervang 'Geschieden'" },
+            { id: 19, titel: "Heden", tekst: "Heden om 14:00 uur zag ik een verdacht voertuig op de A1 rijden.", hint: "Vervang 'Heden'" },
+            { id: 20, titel: "Hiernavolgende", tekst: "Ik noteerde de gegevens van de hiernavolgende getuigen.", hint: "Vervang 'Hiernavolgende'" },
+            { id: 21, titel: "In deze", tekst: "Ik heb in deze nog geen definitieve beslissing genomen.", hint: "Vervang 'In deze'" },
+            { id: 22, titel: "Indien", tekst: "Indien de verdachte niet meewerkte, zou ik geweld gebruiken.", hint: "Vervang 'Indien'" },
+            { id: 23, titel: "Ingeval", tekst: "Ingeval van verzet was ik genoodzaakt de pepperspray te gebruiken.", hint: "Vervang 'Ingeval'" },
+            { id: 24, titel: "Ingevolge", tekst: "Ingevolge de Opiumwet nam ik de aangetroffen middelen in beslag.", hint: "Vervang 'Ingevolge'" },
+            { id: 25, titel: "Inzake", tekst: "Ik hoorde de getuige inzake de diefstal op de Grote Markt.", hint: "Vervang 'Inzake'" },
+            { id: 26, titel: "Jegens", tekst: "Ik merkte dat de jongeren zich agressief gedroegen jegens de politie.", hint: "Vervang 'Jegens'" },
+            { id: 27, titel: "Krachtens", tekst: "Krachtens mijn bevoegdheid vorderde ik inzage in zijn ID-bewijs.", hint: "Vervang 'Krachtens'" },
+            { id: 28, titel: "Mededelen", tekst: "Ik moest de verdachte de gronden van zijn aanhouding mededelen.", hint: "Vervang 'Mededelen'" },
+            { id: 29, titel: "Medio oktober", tekst: "Het nieuwe camerasysteem wordt medio oktober geleverd.", hint: "Vervang 'Medio oktober'" },
+            { id: 30, titel: "Meerdere", tekst: "Ik hoorde meerdere knallen die klonken als schoten.", hint: "Vervang 'Meerdere'" },
+            { id: 31, titel: "Met betrekking tot", tekst: "Ik stelde vragen met betrekking tot de eigenaar van het pand.", hint: "Vervang 'Met betrekking tot'" },
+            { id: 32, titel: "Middels", tekst: "Ik bracht de verdachte middels een transportgreep naar de auto.", hint: "Vervang 'Middels'" },
+            { id: 33, titel: "Mutatie", tekst: "Ik maakte direct een mutatie van mijn bevindingen in de politiesystemen.", hint: "Vervang 'Mutatie'" },
+            { id: 34, titel: "Naar behoren", tekst: "Ik zag dat de apparatuur niet naar behoren functioneerde.", hint: "Vervang 'Naar behoren'" },
+            { id: 35, titel: "Omtrent", tekst: "Er was nog veel onduidelijkheid omtrent de toedracht.", hint: "Vervang 'Omtrent'" },
+            { id: 36, titel: "Ondergetekende", tekst: "Ondergetekende zag dat het voertuig met hoge snelheid wegreed.", hint: "Vervang 'Ondergetekende'" },
+            { id: 37, titel: "Op deze wijze", tekst: "Op deze wijze trachtte de verdachte de controle te omzeilen.", hint: "Vervang 'Op deze wijze'" },
+            { id: 38, titel: "Retourneren", tekst: "Ik verzocht de vinder om de portefeuille naar het bureau te retourneren.", hint: "Vervang 'Retourneren'" },
+            { id: 39, titel: "Separaat", tekst: "Ik hoorde de twee verdachten separaat van elkaar op het bureau.", hint: "Vervang 'Separaat'" },
+            { id: 40, titel: "Schrijven", tekst: "Ik voegde het schrijven van de officier toe aan het dossier.", hint: "Vervang 'Het schrijven'" },
+            { id: 41, titel: "Te allen tijde", tekst: "U dient zich te allen tijde te kunnen legitimeren tegenover een ambtenaar.", hint: "Vervang 'Te allen tijde'" },
+            { id: 42, titel: "Ten aanzien van", tekst: "Ik trof maatregelen ten aanzien van de veiligheid op het plein.", hint: "Vervang 'Ten aanzien van'" },
+            { id: 43, titel: "Ten behoeve van", tekst: "Ik verzamelde sporen ten behoeve van het sporenonderzoek.", hint: "Vervang 'Ten behoeve van'" },
+            { id: 44, titel: "Ten gevolge van", tekst: "De schade aan de pui ontstond ten gevolge van de aanrijding.", hint: "Vervang 'Ten gevolge van'" },
+            { id: 45, titel: "Teneinde", tekst: "Ik greep fysiek in teneinde verdere escalatie te voorkomen.", hint: "Vervang 'Teneinde'" },
+            { id: 46, titel: "Ter zake van", tekst: "De man werd gezocht ter zake van een openstaande boete.", hint: "Vervang 'Ter zake van'" },
+            { id: 47, titel: "Tevens", tekst: "De verdachte droeg tevens een verboden wapen bij zich.", hint: "Vervang 'Tevens'" },
+            { id: 48, titel: "Tezamen", tekst: "Ik zag dat de drie mannen tezamen het winkelpand verlieten.", hint: "Vervang 'Tezamen'" },
+            { id: 49, titel: "Thans", tekst: "De situatie op de Dam is thans weer volledig onder controle.", hint: "Vervang 'Thans'" },
+            { id: 50, titel: "Trachten", tekst: "De verdachte trachtte de achtervolging te voet voort te zetten.", hint: "Vervang 'Trachten'" },
+            { id: 51, titel: "Vernemen", tekst: "Ik wilde van de getuige vernemen wat hij precies had gezien.", hint: "Vervang 'Vernemen'" },
+            { id: 52, titel: "Verzoeken", tekst: "Wij verzoeken u het terrein onmiddellijk te verlaten.", hint: "Vervang 'Verzoeken'" },
+            { id: 53, titel: "Voldoen", tekst: "U moet de opgelegde boete binnen veertien dagen voldoen.", hint: "Vervang 'Voldoen'" },
+            { id: 54, titel: "Vooralsnog", tekst: "Vooralsnog waren er geen aanwijzingen voor een misdrijf.", hint: "Vervang 'Vooralsnog'" },
+            { id: 55, titel: "Voorgaande", tekst: "Ik baseerde mijn vermoeden op de voorgaande feiten en omstandigheden.", hint: "Vervang 'Voorgaande'" },
+            { id: 56, titel: "Voornemens zijn", tekst: "Ik was voornemens de verdachte direct voor te geleiden.", hint: "Vervang 'Voornemens zijn'" },
+            { id: 57, titel: "Voorts", tekst: "Voorts trof ik een breekijzer aan in de kofferbak van de auto.", hint: "Vervang 'Voorts'" },
+            { id: 58, titel: "Welke", tekst: "De auto welke hier geparkeerd stond, bleek als gestolen gesignaleerd.", hint: "Vervang 'Welke'" },
+            { id: 59, titel: "Wijze", tekst: "Ik vroeg op welke wijze de inbrekers waren binnengekomen.", hint: "Vervang 'Wijze'" },
+            { id: 60, titel: "Zorgdragen", tekst: "Ik zou zorgdragen voor de beveiliging van de plaats delict.", hint: "Vervang 'Zorgdragen voor'" }
+        ];
 
         window.login = () => {
-            const naam = document.getElementById('naam').value.trim().toUpperCase();
+            const naamInput = document.getElementById('naam').value.trim().toUpperCase();
             myKlas = document.getElementById('klas-select').value;
-            if(!naam || !myKlas) return alert("Vul voornaam en klas in.");
+            if(!naamInput || !myKlas) return alert("Vul voornaam en klas in.");
+
+            if(naamInput === "DOCENT") {
+                isDocent = true;
+                document.getElementById('auth-scherm').classList.add('hidden');
+                document.getElementById('docent-scherm').classList.remove('hidden');
+                setupLeaderboard();
+                return;
+            }
 
             const userListRef = ref(db, `btv_p2p/${myKlas}/users`);
             const newUserRef = push(userListRef); 
             myId = newUserRef.key;
 
             set(newUserRef, { 
-                naam: naam, 
+                naam: naamInput, 
                 status: 'searching', 
                 session: null,
                 timestamp: serverTimestamp()
@@ -102,8 +111,48 @@
                 document.getElementById('auth-scherm').classList.add('hidden');
                 document.getElementById('lobby-scherm').classList.remove('hidden');
                 startMatchmaking();
+                setupLeaderboard();
             });
         };
+
+        window.resetKlas = () => {
+            if(!confirm("Weet je zeker dat je alle sessies en gebruikers van deze klas wilt wissen?")) return;
+            remove(ref(db, `btv_p2p/${myKlas}`));
+            alert("Klas gereset.");
+            location.reload();
+        };
+
+        function setupLeaderboard() {
+            const sessionsRef = ref(db, `btv_p2p/${myKlas}/sessions`);
+            const usersRef = ref(db, `btv_p2p/${myKlas}/users`);
+
+            onValue(sessionsRef, (snapshot) => {
+                const sessions = snapshot.val();
+                if (!sessions) {
+                    document.getElementById('leaderboard-list').innerHTML = "<p class='text-[10px] text-slate-400 uppercase italic'>Geen actieve sessies</p>";
+                    return;
+                }
+
+                onValue(usersRef, (uSnap) => {
+                    const allUsers = uSnap.val() || {};
+                    let scores = Object.values(sessions).map(s => {
+                        const n1 = allUsers[s.reader]?.naam || "Laden...";
+                        const n2 = allUsers[s.typer]?.naam || "Laden...";
+                        return { duo: `${n1} & ${n2}`, points: s.points || 0 };
+                    });
+
+                    scores.sort((a, b) => b.points - a.points);
+                    
+                    let html = scores.map((s, i) => `
+                        <div class="flex justify-between items-center bg-white p-2 mb-1 border-l-4 border-blue-900 shadow-sm">
+                            <span class="text-[10px] font-bold text-slate-700">${i+1}. ${s.duo}</span>
+                            <span class="bg-blue-900 text-white px-2 py-0.5 rounded text-[10px] font-black">${s.points}</span>
+                        </div>
+                    `).join("");
+                    document.getElementById('leaderboard-list').innerHTML = html;
+                });
+            });
+        }
 
         function startMatchmaking() {
             const usersRef = ref(db, `btv_p2p/${myKlas}/users`);
@@ -158,6 +207,14 @@
             onValue(sessionRef, (snap) => {
                 const data = snap.val();
                 if (!data) return;
+
+                const usersRef = ref(db, `btv_p2p/${myKlas}/users`);
+                onValue(usersRef, (uSnap) => {
+                    const allUsers = uSnap.val() || {};
+                    const partnerId = (data.reader === myId) ? data.typer : data.reader;
+                    const partnerNaam = allUsers[partnerId]?.naam || "Collega";
+                    document.getElementById('partner-display').innerText = "Gekoppeld aan: " + partnerNaam;
+                }, { onlyOnce: true });
 
                 const casus = casusLijst[data.casusIdx];
                 document.getElementById('score').innerText = data.points;
@@ -220,10 +277,10 @@
             <div class="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6 text-left">
                 <h2 class="text-[10px] font-black uppercase text-blue-900 mb-2 tracking-widest">Instructies:</h2>
                 <ul class="text-[11px] text-slate-700 space-y-1 font-semibold">
-                    <li class="flex items-start"><span class="text-blue-900 mr-2">1.</span> Verbeter oubollig taalgebruik</li>
-                    <li class="flex items-start"><span class="text-blue-900 mr-2">2.</span> Let op de onvoltooid verleden tijd</li>
-                    <li class="flex items-start"><span class="text-blue-900 mr-2">3.</span> Let op de ik-vorm</li>
-                    <li class="flex items-start"><span class="text-blue-900 mr-2">4.</span> Let op de redenen van wetenschap</li>
+                    <li>1. Verbeter oubollig taalgebruik</li>
+                    <li>2. Let op de onvoltooid verleden tijd</li>
+                    <li>3. Let op de ik-vorm</li>
+                    <li>4. Let op de redenen van wetenschap</li>
                 </ul>
             </div>
 
@@ -237,6 +294,24 @@
         </div>
     </div>
 
+    <div id="docent-scherm" class="hidden fixed inset-0 bg-slate-100 p-8 overflow-y-auto">
+        <div class="max-w-2xl mx-auto">
+            <div class="flex justify-between items-center mb-8">
+                <h1 class="font-black text-2xl text-blue-900 uppercase">Docenten Paneel</h1>
+                <button onclick="location.reload()" class="text-[10px] font-bold uppercase bg-slate-300 px-4 py-2">Uitloggen</button>
+            </div>
+            <div class="bg-red-100 border-2 border-red-200 p-6 rounded-lg mb-8">
+                <h2 class="font-bold text-red-800 mb-2">Klas Beheer</h2>
+                <p class="text-xs text-red-700 mb-4">Gebruik de knop hieronder om alle actieve sessies en scores van de geselecteerde klas te wissen.</p>
+                <button onclick="resetKlas()" class="bg-red-600 text-white px-6 py-3 font-black uppercase text-xs hover:bg-red-700 transition-all tracking-widest">Klas Volledig Resetten</button>
+            </div>
+            <div class="bg-white p-6 rounded-lg shadow-md">
+                <h2 class="font-black text-blue-900 uppercase text-sm mb-4 tracking-widest">Live Leaderboard</h2>
+                <div id="leaderboard-list"></div>
+            </div>
+        </div>
+    </div>
+
     <div id="lobby-scherm" class="hidden fixed inset-0 bg-slate-100 flex items-center justify-center">
         <div class="text-center">
             <div class="animate-spin h-10 w-10 border-4 border-blue-900 border-t-transparent rounded-full mx-auto mb-4"></div>
@@ -245,11 +320,13 @@
     </div>
 
     <div id="game-scherm" class="hidden max-w-2xl mx-auto p-6">
-        <header class="flex justify-between items-center border-b-2 border-blue-900 pb-2 mb-8 text-xs font-black uppercase">
+        <header class="flex justify-between items-center border-b-2 border-blue-900 pb-2 mb-4 text-xs font-black uppercase">
             <div class="text-blue-900">Punten: <span id="score">0</span></div>
             <div id="casus-titel" class="text-slate-400 tracking-widest"></div>
             <div class="bg-yellow-500 text-[#002d5e] px-2 py-1">Live</div>
         </header>
+        
+        <div id="partner-display" class="text-[10px] font-black uppercase text-blue-900/40 tracking-widest mb-8 text-center"></div>
 
         <div id="reader-view" class="hidden space-y-6">
             <div class="bg-white border-l-8 border-blue-900 p-6 shadow-md">
@@ -259,17 +336,12 @@
             <div class="bg-slate-200 p-6 rounded-lg shadow-inner">
                 <h3 class="text-[10px] uppercase mb-4 font-bold text-slate-500">Partner typt:</h3>
                 <p id="live-check" class="font-mono text-sm min-h-[40px] text-blue-900 font-bold bg-white p-4 rounded border border-slate-300"></p>
-                
-                <button id="approve-btn" onclick="approve()" class="mt-6 w-full bg-emerald-600 text-white py-4 font-bold uppercase text-xs hover:bg-emerald-700 disabled:opacity-30">Akkoord & Wissel</button>
-
-                <div class="mt-6 bg-white/50 border border-slate-300 rounded-lg p-4 text-left">
-                    <h2 class="text-[10px] font-black uppercase text-blue-900 mb-2 tracking-widest">Controleer voor akkoord:</h2>
-                    <ul class="text-[11px] text-slate-700 space-y-1 font-bold italic">
-                        <li class="flex items-start"><span class="text-blue-900 mr-2">1.</span> Is het oubollig taalgebruik verbeterd?</li>
-                        <li class="flex items-start"><span class="text-blue-900 mr-2">2.</span> Is de onvoltooid verleden tijd gebruikt?</li>
-                        <li class="flex items-start"><span class="text-blue-900 mr-2">3.</span> Staat de zin in de ik-vorm?</li>
-                        <li class="flex items-start"><span class="text-blue-900 mr-2">4.</span> Is er gelet op de redenen van wetenschap?</li>
-                    </ul>
+                <button id="approve-btn" onclick="approve()" class="mt-6 w-full bg-emerald-600 text-white py-4 font-bold uppercase text-xs hover:bg-emerald-700 disabled:opacity-30 transition-all">Akkoord & Wissel</button>
+                <div class="mt-6 bg-white/50 border border-slate-300 rounded-lg p-4 text-left italic font-bold text-[11px] text-slate-700 space-y-1 leading-tight">
+                    <p>1. Is het oubollig taalgebruik verbeterd?</p>
+                    <p>2. Is de onvoltooid verleden tijd gebruikt?</p>
+                    <p>3. Staat de zin in de ik-vorm?</p>
+                    <p>4. Is er gelet op de redenen van wetenschap?</p>
                 </div>
             </div>
         </div>
@@ -278,7 +350,12 @@
             <div class="bg-blue-900 text-white p-6 rounded-lg shadow-xl">
                 <p class="text-lg font-bold">Luister naar je partner en typ de moderne versie.</p>
             </div>
-            <textarea id="user-input" oninput="updateTyping(this.value)" class="w-full h-40 p-4 font-mono text-base bg-white border-2 border-blue-900 outline-none focus:ring-4 focus:ring-blue-100"></textarea>
+            <textarea id="user-input" oninput="updateTyping(this.value)" class="w-full h-40 p-4 font-mono text-base bg-white border-2 border-blue-900 outline-none focus:ring-4 focus:ring-blue-100 transition-all"></textarea>
+        </div>
+
+        <div class="mt-12 pt-8 border-t border-slate-200">
+            <h2 class="text-[10px] font-black uppercase text-slate-400 tracking-widest mb-4">Klas Top-Scores</h2>
+            <div id="leaderboard-list"></div>
         </div>
     </div>
 </body>
