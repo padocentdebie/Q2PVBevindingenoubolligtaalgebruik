@@ -19,11 +19,24 @@
         const db = getDatabase(app);
 
         let myId, myKlas, myRole, currentSessionId;
+
+        // De lijst met oubollige zinnen (politiethema)
         const casusLijst = [
-            { id: 1, titel: "Huiselijk Geweld", tekst: "Elif Terzi huilt onbeheerst en heeft een rode vlek op haar wang." },
-            { id: 2, titel: "Vermissing", tekst: "Peter van der Laan staat met zijn handen in het haar en roept paniekerig om Liam." },
-            { id: 3, titel: "XTC Overlast", tekst: "Kevin Schut heeft extreem grote pupillen en een strakke kaakklem." },
-            { id: 4, titel: "Alcohol", tekst: "Johannes Berends spreekt met dubbele tong en heeft bloeddoorlopen ogen." }
+            { id: 1, titel: "Aangezien", tekst: "Aangezien de verdachte vluchtgevaarlijk is, is hij geboeid.", hint: "Vervang 'Aangezien' door 'Omdat'." },
+            { id: 2, titel: "Alvorens", tekst: "Alvorens de woning te betreden, riepen wij luidkeels: 'Politie!'.", hint: "Vervang 'Alvorens' door 'Voordat'." },
+            { id: 3, titel: "Inzake", tekst: "Ik hoorde de getuige inzake de diefstal op de Grote Markt.", hint: "Vervang 'Inzake' door 'Over'." },
+            { id: 4, titel: "Mededelen", tekst: "De hoofdofficier zal u de beslissing mededelen.", hint: "Vervang 'Mededelen' door 'Laten weten'." },
+            { id: 5, titel: "Heden", tekst: "Heden heb ik proces-verbaal opgemaakt tegen de overtreder.", hint: "Vervang 'Heden' door 'Vandaag'." },
+            { id: 6, titel: "Trachten", tekst: "De verdachte trachtte de achtervolging te ontlopen.", hint: "Vervang 'Trachten' door 'Proberen'." },
+            { id: 7, titel: "Ten gevolge van", tekst: "De schade ontstond ten gevolge van de aanrijding.", hint: "Vervang 'Ten gevolge van' door 'Door'." },
+            { id: 8, titel: "Verzoeken", tekst: "Wij verzoeken u het terrein onmiddellijk te verlaten.", hint: "Vervang 'Verzoeken' door 'Vragen'." },
+            { id: 9, titel: "Omtrent", tekst: "Er is nog veel onduidelijkheid omtrent de toedracht.", hint: "Vervang 'Omtrent' door 'Over'." },
+            { id: 10, titel: "Voldoen", tekst: "U moet de boete binnen veertien dagen voldoen.", hint: "Vervang 'Voldoen' door 'Betalen'." },
+            { id: 11, titel: "Middels", tekst: "De toegang werd geforceerd middels een breekijzer.", hint: "Vervang 'Middels' door 'Met' of 'Door'." },
+            { id: 12, titel: "Mutatie", tekst: "Ik heb een mutatie gemaakt in het dagsysteem.", hint: "Vervang 'Mutatie' door 'Wijziging'." },
+            { id: 13, titel: "Zorgdragen", tekst: "De agent zal zorgdragen voor de beveiliging van het bewijs.", hint: "Vervang 'Zorgdragen voor' door 'Zorgen voor'." },
+            { id: 14, titel: "Te allen tijde", tekst: "U dient zich te allen tijde te kunnen legitimeren.", hint: "Vervang 'Te allen tijde' door 'Altijd'." },
+            { id: 15, titel: "Indien", tekst: "Indien u niet meewerkt, wordt u aangehouden.", hint: "Vervang 'Indien' door 'Als'." }
         ];
 
         window.login = () => {
@@ -34,7 +47,6 @@
             myId = naam + "_" + Math.floor(Math.random() * 1000);
             const userRef = ref(db, `btv_p2p/${myKlas}/users/${myId}`);
             
-            // Initialiseer gebruiker als 'searching'
             set(userRef, { naam: naam, status: 'searching', session: null });
             onDisconnect(userRef).remove();
 
@@ -46,26 +58,20 @@
 
         function startMatchmaking() {
             const usersRef = ref(db, `btv_p2p/${myKlas}/users`);
-            
             onValue(usersRef, (snapshot) => {
                 const users = snapshot.val();
                 if (!users || currentSessionId) return;
 
-                // 1. Check of IK al door iemand anders ben gekoppeld (als Typer)
                 if (users[myId] && users[myId].session) {
                     currentSessionId = users[myId].session;
-                    off(usersRef); // Stop met luisteren naar de lobby
+                    off(usersRef);
                     startSession(currentSessionId, 'typer');
                     return;
                 }
 
-                // 2. Zoek zelf naar een partner die 'searching' is (als Reader)
                 for (let id in users) {
                     if (id !== myId && users[id].status === 'searching') {
-                        // Match gevonden!
                         currentSessionId = "sessie_" + myId + "_" + id;
-                        
-                        // Claim de sessie voor beide partijen
                         const updates = {};
                         updates[`btv_p2p/${myKlas}/users/${myId}/status`] = 'busy';
                         updates[`btv_p2p/${myKlas}/users/${myId}/session`] = currentSessionId;
@@ -108,32 +114,27 @@
                     document.getElementById('reader-view').classList.remove('hidden');
                     document.getElementById('typer-view').classList.add('hidden');
                     document.getElementById('orig-tekst').innerText = casus.tekst;
-                    document.getElementById('live-check').innerText = data.currentText || "...wachten op partner...";
+                    document.getElementById('live-check').innerText = data.currentText || "...partner typt...";
                     document.getElementById('approve-btn').disabled = (data.currentText.length < 3 || data.approved);
                 } else {
                     document.getElementById('reader-view').classList.add('hidden');
                     document.getElementById('typer-view').classList.remove('hidden');
-                    document.getElementById('casus-hint').innerText = "Luister naar je partner en typ de tekst over.";
+                    document.getElementById('casus-hint').innerText = casus.hint;
                     
-                    // Alleen het tekstveld leegmaken als de sessie gereset is voor een nieuwe casus
                     if (data.currentText === "" && !data.approved) {
                         document.getElementById('user-input').value = "";
                     }
                 }
 
                 if (data.approved && myRole === 'reader') {
-                    // Kleine vertraging voor de flow voordat de volgende casus laadt
-                    setTimeout(() => nextCasus(sid, data.points, data.casusIdx), 1200);
+                    setTimeout(() => nextRound(sid, data.points, data.casusIdx, data.reader, data.typer), 1500);
                 }
             });
         }
 
         window.updateTyping = (val) => {
             if (currentSessionId && myRole === 'typer') {
-                update(ref(db, `btv_p2p/${myKlas}/sessions/${currentSessionId}`), { 
-                    currentText: val,
-                    approved: false 
-                });
+                update(ref(db, `btv_p2p/${myKlas}/sessions/${currentSessionId}`), { currentText: val });
             }
         };
 
@@ -143,13 +144,19 @@
             }
         };
 
-        function nextCasus(sid, points, idx) {
+        function nextRound(sid, points, idx, oldReader, oldTyper) {
             const nextIdx = (idx + 1) % casusLijst.length;
+            // Rollen omdraaien voor de volgende ronde
             update(ref(db, `btv_p2p/${myKlas}/sessions/${sid}`), {
                 approved: false,
                 currentText: "",
                 points: points + 1,
-                casusIdx: nextIdx
+                casusIdx: nextIdx,
+                reader: oldTyper, // Wissel rol
+                typer: oldReader  // Wissel rol
+            }).then(() => {
+                // Lokale rol ook bijwerken
+                myRole = (myRole === 'reader') ? 'typer' : 'reader';
             });
         }
     </script>
@@ -158,49 +165,52 @@
 
     <div id="auth-scherm" class="fixed inset-0 bg-[#002d5e] z-50 flex items-center justify-center p-4">
         <div class="bg-white p-8 w-full max-w-sm border-t-8 border-yellow-500 shadow-2xl">
-            <h1 class="font-black text-2xl text-blue-900 mb-6 uppercase tracking-tighter">Duo Training</h1>
-            <input type="text" id="naam" placeholder="JOUW NAAM" class="w-full border p-4 mb-4 bg-slate-50 uppercase text-xs font-bold outline-none focus:border-blue-900">
+            <h1 class="font-black text-2xl text-blue-900 mb-2 uppercase tracking-tighter">BTV Training</h1>
+            <p class="text-[10px] mb-6 text-slate-400 font-bold uppercase">Moderniseer je politietaal</p>
+            <input type="text" id="naam" placeholder="ACHTERNAAM" class="w-full border p-4 mb-4 bg-slate-50 uppercase text-xs font-bold outline-none focus:border-blue-900">
             <select id="klas-select" class="w-full border p-4 mb-6 bg-slate-50 uppercase text-xs font-bold outline-none">
                 <option value="ALFA">ALFA</option><option value="BRAVO">BRAVO</option>
                 <option value="CHARLIE">CHARLIE</option><option value="DELTA">DELTA</option>
                 <option value="ECHO">ECHO</option><option value="FOXTROT">FOXTROT</option>
                 <option value="GOLF">GOLF</option><option value="HOTEL">HOTEL</option>
             </select>
-            <button onclick="login()" class="w-full bg-[#002d5e] text-white p-4 font-bold uppercase text-xs tracking-widest hover:bg-blue-800 transition-colors">Start Zoeken</button>
+            <button onclick="login()" class="w-full bg-[#002d5e] text-white p-4 font-bold uppercase text-xs tracking-widest hover:bg-blue-800 transition-colors">Zoek Partner</button>
         </div>
     </div>
 
     <div id="lobby-scherm" class="hidden fixed inset-0 bg-slate-100 flex items-center justify-center">
         <div class="text-center">
             <div class="animate-spin h-10 w-10 border-4 border-blue-900 border-t-transparent rounded-full mx-auto mb-4"></div>
-            <p class="font-bold text-blue-900 uppercase tracking-widest text-xs">Wachten op partner in jouw klas...</p>
+            <p class="font-bold text-blue-900 uppercase tracking-widest text-[10px]">Wachten op klasgenoot...</p>
         </div>
     </div>
 
     <div id="game-scherm" class="hidden max-w-2xl mx-auto p-6">
-        <header class="flex justify-between border-b-2 border-blue-900 pb-2 mb-8">
-            <div id="score" class="font-black text-blue-900 text-xs">Punten: 0</div>
+        <header class="flex justify-between items-center border-b-2 border-blue-900 pb-2 mb-8">
+            <div id="score" class="font-black text-blue-900 text-lg">0</div>
             <div id="casus-titel" class="font-black text-slate-400 text-xs uppercase tracking-widest"></div>
+            <div class="bg-yellow-500 text-[#002d5e] px-2 py-1 text-[10px] font-bold">LIVE</div>
         </header>
 
         <div id="reader-view" class="hidden space-y-6">
-            <div class="bg-blue-900 text-white p-6 rounded-lg shadow-lg">
-                <h3 class="text-[10px] uppercase mb-2 opacity-70">Lees voor aan partner:</h3>
-                <p id="orig-tekst" class="text-xl font-serif italic"></p>
+            <div class="bg-white border-l-8 border-blue-900 p-6 shadow-md">
+                <h3 class="text-[10px] uppercase mb-2 font-bold text-blue-900">Lees deze oubollige zin voor:</h3>
+                <p id="orig-tekst" class="text-xl font-medium text-slate-800 italic"></p>
             </div>
-            <div class="bg-white border-2 border-slate-200 p-6">
-                <h3 class="text-[10px] uppercase mb-4 text-slate-400">Live invoer partner:</h3>
-                <p id="live-check" class="font-mono text-sm min-h-[50px] text-slate-700 whitespace-pre-wrap"></p>
-                <button id="approve-btn" onclick="approve()" class="mt-6 w-full bg-emerald-600 text-white py-4 font-bold uppercase text-xs hover:bg-emerald-700 disabled:opacity-30 transition-opacity">Akkoord (Volgende)</button>
+            <div class="bg-slate-200 p-6 rounded-lg">
+                <h3 class="text-[10px] uppercase mb-4 font-bold text-slate-500">Partner typt de moderne versie:</h3>
+                <p id="live-check" class="font-mono text-sm min-h-[40px] text-blue-900 font-bold bg-white p-4 rounded border border-slate-300"></p>
+                <button id="approve-btn" onclick="approve()" class="mt-6 w-full bg-emerald-600 text-white py-4 font-bold uppercase text-xs hover:bg-emerald-700 disabled:opacity-30">Akkoord & Wissel van rol</button>
             </div>
         </div>
 
         <div id="typer-view" class="hidden space-y-6">
-            <div class="bg-white border-2 border-blue-900 p-6 shadow-xl">
-                <p id="casus-hint" class="text-xs font-bold text-blue-900 mb-6 uppercase italic"></p>
-                <textarea id="user-input" oninput="updateTyping(this.value)" class="w-full h-40 p-4 font-mono text-sm bg-slate-50 border outline-none focus:border-blue-900" placeholder="Typ hier de tekst..."></textarea>
-                <p class="mt-4 text-[9px] text-slate-400 uppercase">Je partner kijkt live mee en geeft akkoord.</p>
+            <div class="bg-blue-900 text-white p-6 rounded-lg shadow-xl">
+                <h3 class="text-[10px] uppercase mb-2 opacity-70">Opdracht:</h3>
+                <p id="casus-hint" class="text-lg font-bold"></p>
             </div>
+            <textarea id="user-input" oninput="updateTyping(this.value)" class="w-full h-40 p-4 font-mono text-base bg-white border-2 border-blue-900 outline-none focus:ring-4 focus:ring-blue-100 transition-all" placeholder="Schrijf hier de moderne politiezine..."></textarea>
+            <p class="text-center text-[10px] text-slate-400 font-bold uppercase tracking-widest">Wacht op akkoord van je partner</p>
         </div>
     </div>
 </body>
