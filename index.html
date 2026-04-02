@@ -22,21 +22,21 @@
 
         // De lijst met oubollige zinnen (politiethema)
         const casusLijst = [
-            { id: 1, titel: "Aangezien", tekst: "Aangezien de verdachte vluchtgevaarlijk is, is hij geboeid.", hint: "Vervang 'Aangezien' door 'Omdat'." },
-            { id: 2, titel: "Alvorens", tekst: "Alvorens de woning te betreden, riepen wij luidkeels: 'Politie!'.", hint: "Vervang 'Alvorens' door 'Voordat'." },
-            { id: 3, titel: "Inzake", tekst: "Ik hoorde de getuige inzake de diefstal op de Grote Markt.", hint: "Vervang 'Inzake' door 'Over'." },
-            { id: 4, titel: "Mededelen", tekst: "De hoofdofficier zal u de beslissing mededelen.", hint: "Vervang 'Mededelen' door 'Laten weten'." },
-            { id: 5, titel: "Heden", tekst: "Heden heb ik proces-verbaal opgemaakt tegen de overtreder.", hint: "Vervang 'Heden' door 'Vandaag'." },
-            { id: 6, titel: "Trachten", tekst: "De verdachte trachtte de achtervolging te ontlopen.", hint: "Vervang 'Trachten' door 'Proberen'." },
-            { id: 7, titel: "Ten gevolge van", tekst: "De schade ontstond ten gevolge van de aanrijding.", hint: "Vervang 'Ten gevolge van' door 'Door'." },
-            { id: 8, titel: "Verzoeken", tekst: "Wij verzoeken u het terrein onmiddellijk te verlaten.", hint: "Vervang 'Verzoeken' door 'Vragen'." },
-            { id: 9, titel: "Omtrent", tekst: "Er is nog veel onduidelijkheid omtrent de toedracht.", hint: "Vervang 'Omtrent' door 'Over'." },
-            { id: 10, titel: "Voldoen", tekst: "U moet de boete binnen veertien dagen voldoen.", hint: "Vervang 'Voldoen' door 'Betalen'." },
-            { id: 11, titel: "Middels", tekst: "De toegang werd geforceerd middels een breekijzer.", hint: "Vervang 'Middels' door 'Met' of 'Door'." },
-            { id: 12, titel: "Mutatie", tekst: "Ik heb een mutatie gemaakt in het dagsysteem.", hint: "Vervang 'Mutatie' door 'Wijziging'." },
-            { id: 13, titel: "Zorgdragen", tekst: "De agent zal zorgdragen voor de beveiliging van het bewijs.", hint: "Vervang 'Zorgdragen voor' door 'Zorgen voor'." },
-            { id: 14, titel: "Te allen tijde", tekst: "U dient zich te allen tijde te kunnen legitimeren.", hint: "Vervang 'Te allen tijde' door 'Altijd'." },
-            { id: 15, titel: "Indien", tekst: "Indien u niet meewerkt, wordt u aangehouden.", hint: "Vervang 'Indien' door 'Als'." }
+            { id: 1, titel: "Aangezien", tekst: "Aangezien de verdachte vluchtgevaarlijk is, is hij geboeid.", hint: "Vervang 'Aangezien' " },
+            { id: 2, titel: "Alvorens", tekst: "Alvorens de woning te betreden, riepen wij luidkeels: 'Politie!'.", hint: "Vervang 'Alvorens'" },
+            { id: 3, titel: "Inzake", tekst: "Ik hoorde de getuige inzake de diefstal op de Grote Markt.", hint: "Vervang 'Inzake' " },
+            { id: 4, titel: "Mededelen", tekst: "De hoofdofficier zal u de beslissing mededelen.", hint: "Vervang 'Mededelen' " },
+            { id: 5, titel: "Heden", tekst: "Heden heb ik proces-verbaal opgemaakt tegen de overtreder.", hint: "Vervang 'Heden'" },
+            { id: 6, titel: "Trachten", tekst: "De verdachte trachtte de achtervolging te ontlopen.", hint: "Vervang 'Trachten'" },
+            { id: 7, titel: "Ten gevolge van", tekst: "De schade ontstond ten gevolge van de aanrijding.", hint: "Vervang '" },
+            { id: 8, titel: "Verzoeken", tekst: "Wij verzoeken u het terrein onmiddellijk te verlaten.", hint: "Vervang 'Verzoeken' " },
+            { id: 9, titel: "Omtrent", tekst: "Er is nog veel onduidelijkheid omtrent de toedracht.", hint: "Vervang 'Omtrent' " },
+            { id: 10, titel: "Voldoen", tekst: "U moet de boete binnen veertien dagen voldoen.", hint: "Vervang 'Voldoen' " },
+            { id: 11, titel: "Middels", tekst: "De toegang werd geforceerd middels een breekijzer.", hint: "Vervang 'Middels' " },
+            { id: 12, titel: "Mutatie", tekst: "Ik heb een mutatie gemaakt in het dagsysteem.", hint: "Vervang 'Mutatie' ." },
+            { id: 13, titel: "Zorgdragen", tekst: "De agent zal zorgdragen voor de beveiliging van het bewijs.", hint: "Vervang 'Zorgdragen voor' " },
+            { id: 14, titel: "Te allen tijde", tekst: "U dient zich te allen tijde te kunnen legitimeren.", hint: "Vervang 'Te allen tijde'." },
+            { id: 15, titel: "Indien", tekst: "Indien u niet meewerkt, wordt u aangehouden.", hint: "Vervang 'Indien' ." }
         ];
 
         window.login = () => {
@@ -56,18 +56,58 @@
             startMatchmaking();
         };
 
-        function startMatchmaking() {
-            const usersRef = ref(db, `btv_p2p/${myKlas}/users`);
-            onValue(usersRef, (snapshot) => {
-                const users = snapshot.val();
-                if (!users || currentSessionId) return;
+      function startMatchmaking() {
+    const usersRef = ref(db, `btv_p2p/${myKlas}/users`);
+    
+    onValue(usersRef, (snapshot) => {
+        const users = snapshot.val();
+        if (!users || currentSessionId) return;
 
-                if (users[myId] && users[myId].session) {
-                    currentSessionId = users[myId].session;
-                    off(usersRef);
-                    startSession(currentSessionId, 'typer');
-                    return;
-                }
+        // 1. Check of IK al door iemand anders ben gekoppeld (als Typer)
+        if (users[myId] && users[myId].session) {
+            currentSessionId = users[myId].session;
+            off(usersRef); 
+            startSession(currentSessionId, 'typer');
+            return;
+        }
+
+        // 2. Zoek naar de 'oudste' andere wachtende student in de klas
+        // We sorteren op wie het langst wacht om eerlijk te koppelen
+        const waitingPartners = Object.keys(users)
+            .filter(id => id !== myId && users[id].status === 'searching')
+            .sort((a, b) => (users[a].timestamp || 0) - (users[b].timestamp || 0));
+
+        if (waitingPartners.length > 0) {
+            // Er is iemand! Ik word de Reader en maak de sessie aan.
+            const partnerId = waitingPartners[0];
+            currentSessionId = "sessie_" + myId + "_" + partnerId;
+            
+            const updates = {};
+            updates[`btv_p2p/${myKlas}/users/${myId}/status`] = 'busy';
+            updates[`btv_p2p/${myKlas}/users/${myId}/session`] = currentSessionId;
+            updates[`btv_p2p/${myKlas}/users/${partnerId}/status`] = 'busy';
+            updates[`btv_p2p/${myKlas}/users/${partnerId}/session`] = currentSessionId;
+
+            update(ref(db), updates).then(() => {
+                set(ref(db, `btv_p2p/${myKlas}/sessions/${currentSessionId}`), {
+                    reader: myId,
+                    typer: partnerId,
+                    casusIdx: Math.floor(Math.random() * casusLijst.length), // Start met willekeurige casus
+                    currentText: "",
+                    approved: false,
+                    points: 0
+                });
+                off(usersRef);
+                startSession(currentSessionId, 'reader');
+            });
+        } else {
+            // GEEN PARTNER GEVONDEN (Oneven aantal of eerste in de klas)
+            // De student blijft in de lobby. De UI toont de spinner.
+            // Zodra er een volgende student inlogt, zal DIE de match maken (stap 2 hierboven).
+            console.log("Nog geen partner beschikbaar in klas " + myKlas);
+        }
+    });
+}
 
                 for (let id in users) {
                     if (id !== myId && users[id].status === 'searching') {
