@@ -20,10 +20,10 @@
 
         let myId, myKlas, myRole, currentSessionId;
         const casusLijst = [
-            { id: 1, titel: "Huiselijk Geweld", tekst: "Elif Terzi huilt onbeheerst en heeft een rode vlek op haar wang.", img: "verdriet.jpg" },
-            { id: 2, titel: "Vermissing", tekst: "Peter van der Laan staat met zijn handen in het haar en roept paniekerig om Liam.", img: "paniek.jpg" },
-            { id: 3, titel: "XTC Overlast", tekst: "Kevin Schut heeft extreem grote pupillen en een strakke kaakklem.", img: "drugs.jpg" },
-            { id: 4, titel: "Alcohol", tekst: "Johannes Berends spreekt met dubbele tong en heeft bloeddoorlopen ogen.", img: "alcohol.jpg" }
+            { id: 1, titel: "Huiselijk Geweld", tekst: "Elif Terzi huilt onbeheerst en heeft een rode vlek op haar wang." },
+            { id: 2, titel: "Vermissing", tekst: "Peter van der Laan staat met zijn handen in het haar en roept paniekerig om Liam." },
+            { id: 3, titel: "XTC Overlast", tekst: "Kevin Schut heeft extreem grote pupillen en een strakke kaakklem." },
+            { id: 4, titel: "Alcohol", tekst: "Johannes Berends spreekt met dubbele tong en heeft bloeddoorlopen ogen." }
         ];
 
         window.login = () => {
@@ -34,56 +34,58 @@
             myId = naam + "_" + Math.floor(Math.random() * 1000);
             const userRef = ref(db, `btv_p2p/${myKlas}/users/${myId}`);
             
+            // Initialiseer gebruiker als 'searching'
             set(userRef, { naam: naam, status: 'searching', session: null });
             onDisconnect(userRef).remove();
 
             document.getElementById('auth-scherm').classList.add('hidden');
             document.getElementById('lobby-scherm').classList.remove('hidden');
-            findPartner();
+            
+            startMatchmaking();
         };
 
-        function findPartner() {
+        function startMatchmaking() {
             const usersRef = ref(db, `btv_p2p/${myKlas}/users`);
             
-            // Listener 1: Zoek zelf naar een beschikbare partner
-            const searchListener = onValue(usersRef, (snapshot) => {
+            onValue(usersRef, (snapshot) => {
                 const users = snapshot.val();
                 if (!users || currentSessionId) return;
 
+                // 1. Check of IK al door iemand anders ben gekoppeld (als Typer)
+                if (users[myId] && users[myId].session) {
+                    currentSessionId = users[myId].session;
+                    off(usersRef); // Stop met luisteren naar de lobby
+                    startSession(currentSessionId, 'typer');
+                    return;
+                }
+
+                // 2. Zoek zelf naar een partner die 'searching' is (als Reader)
                 for (let id in users) {
                     if (id !== myId && users[id].status === 'searching') {
-                        // Wij hebben iemand gevonden! Wij worden de READER.
-                        off(usersRef); // Stop met zoeken naar anderen
-                        currentSessionId = myId + "_" + id;
+                        // Match gevonden!
+                        currentSessionId = "sessie_" + myId + "_" + id;
                         
-                        const sessionData = {
-                            reader: myId,
-                            typer: id,
-                            casusIdx: 0,
-                            currentText: "",
-                            approved: false,
-                            points: 0
-                        };
+                        // Claim de sessie voor beide partijen
+                        const updates = {};
+                        updates[`btv_p2p/${myKlas}/users/${myId}/status`] = 'busy';
+                        updates[`btv_p2p/${myKlas}/users/${myId}/session`] = currentSessionId;
+                        updates[`btv_p2p/${myKlas}/users/${id}/status`] = 'busy';
+                        updates[`btv_p2p/${myKlas}/users/${id}/session`] = currentSessionId;
 
-                        set(ref(db, `btv_p2p/${myKlas}/sessions/${currentSessionId}`), sessionData).then(() => {
-                            update(ref(db, `btv_p2p/${myKlas}/users/${myId}`), { status: 'busy', session: currentSessionId });
-                            update(ref(db, `btv_p2p/${myKlas}/users/${id}`), { status: 'busy', session: currentSessionId });
+                        update(ref(db), updates).then(() => {
+                            set(ref(db, `btv_p2p/${myKlas}/sessions/${currentSessionId}`), {
+                                reader: myId,
+                                typer: id,
+                                casusIdx: 0,
+                                currentText: "",
+                                approved: false,
+                                points: 0
+                            });
+                            off(usersRef);
                             startSession(currentSessionId, 'reader');
                         });
                         break;
                     }
-                }
-            });
-
-            // Listener 2: Wacht of een ander JOU vindt
-            const selfSessionRef = ref(db, `btv_p2p/${myKlas}/users/${myId}/session`);
-            onValue(selfSessionRef, (snap) => {
-                const sid = snap.val();
-                if (sid && !currentSessionId) {
-                    // Een ander heeft ons gevonden! Wij worden de TYPER.
-                    off(usersRef); 
-                    currentSessionId = sid;
-                    startSession(sid, 'typer');
                 }
             });
         }
@@ -93,7 +95,8 @@
             document.getElementById('lobby-scherm').classList.add('hidden');
             document.getElementById('game-scherm').classList.remove('hidden');
             
-            onValue(ref(db, `btv_p2p/${myKlas}/sessions/${sid}`), (snap) => {
+            const sessionRef = ref(db, `btv_p2p/${myKlas}/sessions/${sid}`);
+            onValue(sessionRef, (snap) => {
                 const data = snap.val();
                 if (!data) return;
 
@@ -105,31 +108,32 @@
                     document.getElementById('reader-view').classList.remove('hidden');
                     document.getElementById('typer-view').classList.add('hidden');
                     document.getElementById('orig-tekst').innerText = casus.tekst;
-                    document.getElementById('live-check').innerText = data.currentText || "...wachten op invoer...";
-                    document.getElementById('approve-btn').disabled = (data.currentText.length < 5 || data.approved);
+                    document.getElementById('live-check').innerText = data.currentText || "...wachten op partner...";
+                    document.getElementById('approve-btn').disabled = (data.currentText.length < 3 || data.approved);
                 } else {
                     document.getElementById('reader-view').classList.add('hidden');
                     document.getElementById('typer-view').classList.remove('hidden');
-                    document.getElementById('casus-hint').innerText = "Luister naar je partner en typ de objectieve PV-versie.";
-                    // Als de reader heeft goedgekeurd, maken we het veld leeg voor de volgende
-                    if (data.approved === false && data.currentText === "") {
-                         document.getElementById('user-input').value = "";
+                    document.getElementById('casus-hint').innerText = "Luister naar je partner en typ de tekst over.";
+                    
+                    // Alleen het tekstveld leegmaken als de sessie gereset is voor een nieuwe casus
+                    if (data.currentText === "" && !data.approved) {
+                        document.getElementById('user-input').value = "";
                     }
                 }
 
-                if (data.approved) {
-                    // Alleen de reader triggert de overgang na een korte pauze of klik
-                    // In dit geval doen we het automatisch voor de flow
-                    setTimeout(() => {
-                        if (myRole === 'reader') nextCasus(sid, data.points, data.casusIdx);
-                    }, 1500);
+                if (data.approved && myRole === 'reader') {
+                    // Kleine vertraging voor de flow voordat de volgende casus laadt
+                    setTimeout(() => nextCasus(sid, data.points, data.casusIdx), 1200);
                 }
             });
         }
 
         window.updateTyping = (val) => {
             if (currentSessionId && myRole === 'typer') {
-                update(ref(db, `btv_p2p/${myKlas}/sessions/${currentSessionId}`), { currentText: val });
+                update(ref(db, `btv_p2p/${myKlas}/sessions/${currentSessionId}`), { 
+                    currentText: val,
+                    approved: false 
+                });
             }
         };
 
@@ -140,12 +144,12 @@
         };
 
         function nextCasus(sid, points, idx) {
-            const newIdx = (idx + 1) % casusLijst.length;
+            const nextIdx = (idx + 1) % casusLijst.length;
             update(ref(db, `btv_p2p/${myKlas}/sessions/${sid}`), {
                 approved: false,
                 currentText: "",
                 points: points + 1,
-                casusIdx: newIdx
+                casusIdx: nextIdx
             });
         }
     </script>
@@ -154,24 +158,22 @@
 
     <div id="auth-scherm" class="fixed inset-0 bg-[#002d5e] z-50 flex items-center justify-center p-4">
         <div class="bg-white p-8 w-full max-w-sm border-t-8 border-yellow-500 shadow-2xl">
-            <h1 class="font-black text-2xl text-blue-900 mb-6 uppercase">Duo Training Login</h1>
-            <input type="text" id="naam" placeholder="JOUW NAAM" class="w-full border p-4 mb-4 bg-slate-50 uppercase text-xs font-bold outline-none">
+            <h1 class="font-black text-2xl text-blue-900 mb-6 uppercase tracking-tighter">Duo Training</h1>
+            <input type="text" id="naam" placeholder="JOUW NAAM" class="w-full border p-4 mb-4 bg-slate-50 uppercase text-xs font-bold outline-none focus:border-blue-900">
             <select id="klas-select" class="w-full border p-4 mb-6 bg-slate-50 uppercase text-xs font-bold outline-none">
                 <option value="ALFA">ALFA</option><option value="BRAVO">BRAVO</option>
                 <option value="CHARLIE">CHARLIE</option><option value="DELTA">DELTA</option>
                 <option value="ECHO">ECHO</option><option value="FOXTROT">FOXTROT</option>
                 <option value="GOLF">GOLF</option><option value="HOTEL">HOTEL</option>
-                <option value="JULIETT">JULIETT</option><option value="KILO">KILO</option>
-                <option value="LIMA">LIMA</option><option value="MIKE">MIKE</option>
             </select>
-            <button onclick="login()" class="w-full bg-[#002d5e] text-white p-4 font-bold uppercase text-xs tracking-widest">Zoek Partner</button>
+            <button onclick="login()" class="w-full bg-[#002d5e] text-white p-4 font-bold uppercase text-xs tracking-widest hover:bg-blue-800 transition-colors">Start Zoeken</button>
         </div>
     </div>
 
     <div id="lobby-scherm" class="hidden fixed inset-0 bg-slate-100 flex items-center justify-center">
         <div class="text-center">
             <div class="animate-spin h-10 w-10 border-4 border-blue-900 border-t-transparent rounded-full mx-auto mb-4"></div>
-            <p class="font-bold text-blue-900 uppercase tracking-widest text-xs">Wachten op partner in klas...</p>
+            <p class="font-bold text-blue-900 uppercase tracking-widest text-xs">Wachten op partner in jouw klas...</p>
         </div>
     </div>
 
@@ -183,21 +185,21 @@
 
         <div id="reader-view" class="hidden space-y-6">
             <div class="bg-blue-900 text-white p-6 rounded-lg shadow-lg">
-                <h3 class="text-[10px] uppercase mb-2 opacity-70">Lees deze zin voor aan je partner:</h3>
+                <h3 class="text-[10px] uppercase mb-2 opacity-70">Lees voor aan partner:</h3>
                 <p id="orig-tekst" class="text-xl font-serif italic"></p>
             </div>
             <div class="bg-white border-2 border-slate-200 p-6">
-                <h3 class="text-[10px] uppercase mb-4 text-slate-400">Wat je partner typt:</h3>
+                <h3 class="text-[10px] uppercase mb-4 text-slate-400">Live invoer partner:</h3>
                 <p id="live-check" class="font-mono text-sm min-h-[50px] text-slate-700 whitespace-pre-wrap"></p>
-                <button id="approve-btn" onclick="approve()" class="mt-6 w-full bg-emerald-600 text-white py-4 font-bold uppercase text-xs hover:bg-emerald-700 disabled:opacity-30">Correct (Volgende)</button>
+                <button id="approve-btn" onclick="approve()" class="mt-6 w-full bg-emerald-600 text-white py-4 font-bold uppercase text-xs hover:bg-emerald-700 disabled:opacity-30 transition-opacity">Akkoord (Volgende)</button>
             </div>
         </div>
 
         <div id="typer-view" class="hidden space-y-6">
             <div class="bg-white border-2 border-blue-900 p-6 shadow-xl">
                 <p id="casus-hint" class="text-xs font-bold text-blue-900 mb-6 uppercase italic"></p>
-                <textarea id="user-input" oninput="updateTyping(this.value)" class="w-full h-40 p-4 font-mono text-sm bg-slate-50 border outline-none focus:border-blue-900" placeholder="Typ hier de moderne, objectieve versie..."></textarea>
-                <p class="mt-4 text-[9px] text-slate-400 uppercase">Wacht op goedkeuring van je partner na het typen.</p>
+                <textarea id="user-input" oninput="updateTyping(this.value)" class="w-full h-40 p-4 font-mono text-sm bg-slate-50 border outline-none focus:border-blue-900" placeholder="Typ hier de tekst..."></textarea>
+                <p class="mt-4 text-[9px] text-slate-400 uppercase">Je partner kijkt live mee en geeft akkoord.</p>
             </div>
         </div>
     </div>
