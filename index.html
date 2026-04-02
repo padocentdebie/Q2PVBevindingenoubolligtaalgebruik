@@ -163,20 +163,26 @@
 </head>
 <body class="bg-slate-100 text-slate-900 font-sans">
 
-    <div id="auth-scherm" class="fixed inset-0 bg-[#002d5e] z-50 flex items-center justify-center p-4">
+   <div id="auth-scherm" class="fixed inset-0 bg-[#002d5e] z-50 flex items-center justify-center p-4">
+    <div class="bg-white p-8 w-full max-w-sm border-t-8 border-yellow-500 shadow-2xl text-center">
+        
         <img src="gun-drop.gif" alt="BTV Logo" class="mx-auto mb-4 w-24 h-auto">
-        <div class="bg-white p-8 w-full max-w-sm border-t-8 border-yellow-500 shadow-2xl">
-            <h1 class="font-black text-2xl text-blue-900 mb-2 uppercase tracking-tighter">BTV Training</h1>
-            <p class="text-[10px] mb-6 text-slate-400 font-bold uppercase">Moderniseer je politietaal</p>
-            <input type="text" id="naam" placeholder="ACHTERNAAM" class="w-full border p-4 mb-4 bg-slate-50 uppercase text-xs font-bold outline-none focus:border-blue-900">
-            <select id="klas-select" class="w-full border p-4 mb-6 bg-slate-50 uppercase text-xs font-bold outline-none">
-                <option value="ALFA">ALFA</option><option value="BRAVO">BRAVO</option>
-                <option value="CHARLIE">CHARLIE</option><option value="DELTA">DELTA</option>
-                <option value="ECHO">ECHO</option><option value="FOXTROT">FOXTROT</option>
-                <option value="GOLF">GOLF</option><option value="HOTEL">HOTEL</option>
-            </select>
-            <button onclick="login()" class="w-full bg-[#002d5e] text-white p-4 font-bold uppercase text-xs tracking-widest hover:bg-blue-800 transition-colors">Zoek Partner</button>
-        </div>
+
+        <h1 class="font-black text-2xl text-blue-900 mb-2 uppercase tracking-tighter">BTV Training</h1>
+        <p class="text-[10px] mb-6 text-slate-400 font-bold uppercase tracking-widest">Moderniseer je politietaal</p>
+        
+        <input type="text" id="naam" placeholder="ACHTERNAAM" class="w-full border p-4 mb-4 bg-slate-50 uppercase text-xs font-bold outline-none focus:border-blue-900 text-left">
+        
+        <select id="klas-select" class="w-full border p-4 mb-6 bg-slate-50 uppercase text-xs font-bold outline-none">
+            <option value="ALFA">ALFA</option><option value="BRAVO">BRAVO</option>
+            <option value="CHARLIE">CHARLIE</option><option value="DELTA">DELTA</option>
+            <option value="ECHO">ECHO</option><option value="FOXTROT">FOXTROT</option>
+            <option value="GOLF">GOLF</option><option value="HOTEL">HOTEL</option>
+        </select>
+        
+        <button onclick="login()" class="w-full bg-[#002d5e] text-white p-4 font-bold uppercase text-xs tracking-widest hover:bg-blue-800 transition-colors">Start Zoeken</button>
+    </div>
+</div>
     </div>
 
     <div id="lobby-scherm" class="hidden fixed inset-0 bg-slate-100 flex items-center justify-center">
